@@ -371,16 +371,26 @@ async function resolveMirror(build) {
     const cached = (() => {
         try { return JSON.parse(_lsGet('gxMirror_' + build.id) || 'null'); } catch (e) { return null; }
     })();
-    // A bundled copy is same-origin: it always wins, no probe and no network.
+    /* A bundled copy is same-origin, so it is tried first and normally wins
+       without touching the network. If the folder is missing from this
+       deployment (it may have been excluded to keep the repo small) fall
+       through to the remote mirrors instead of launching a 404. */
     const local = build.mirrors.find(m => m.local);
     if (local) {
-        try { _lsSet('gxMirror_' + build.id, JSON.stringify(local.url)); } catch (e) {}
-        clearTimeout(timer);
-        return local.url;
+        const quickCtrl = new AbortController();
+        const quickTimer = setTimeout(() => quickCtrl.abort(), 4000);
+        try {
+            const ok = await probeMirror(local.url, quickCtrl.signal);
+            try { _lsSet('gxMirror_' + build.id, JSON.stringify(ok)); } catch (e) {}
+            clearTimeout(quickTimer); clearTimeout(timer);
+            return ok;
+        } catch (e) {
+            clearTimeout(quickTimer);
+        }
     }
 
     const pref = (typeof gxSettings === 'function' ? gxSettings().sourceOrder : 'auto');
-    let ordered = [...build.mirrors];
+    let ordered = build.mirrors.filter(m => !m.local);
     if (pref && pref !== 'auto') {
         // user pinned a preferred source: try it first, keep the rest as backup
         ordered.sort((a, b) => (b.id === pref ? 1 : 0) - (a.id === pref ? 1 : 0));
