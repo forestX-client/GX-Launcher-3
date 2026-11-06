@@ -83,6 +83,7 @@ function toggleModMaker() {}
 
 // ===== VERSION SELECTOR =====
 let _selectedVersion = '';
+let _selectedBuild = null;   // catalog entry for the current selection
 
 function toggleVersionDropdown() {
     const dd  = document.getElementById('version-dropdown');
@@ -90,6 +91,7 @@ function toggleVersionDropdown() {
     if (!dd) return;
     const isOpen = dd.classList.toggle('open');
     sel.classList.toggle('open', isOpen);
+    if (isOpen && window.GX && window.GX.catalog) window.GX.catalog.renderDropdown('');
     const search = document.getElementById('version-search');
     if (search) {
         if (isOpen) {
@@ -101,26 +103,10 @@ function toggleVersionDropdown() {
 }
 
 function filterVersionDropdown(input) {
-    const dd = document.getElementById('version-dropdown');
-    if (!dd) return;
-    const query = input.value.trim().toLowerCase();
-    let currentGroup = null;
-    let groupHasMatch = false;
-    const groups = [];
-    dd.querySelectorAll('.version-group-label, .version-option').forEach(el => {
-        if (el.classList.contains('version-group-label')) {
-            if (currentGroup) groups.push([currentGroup, groupHasMatch]);
-            currentGroup = el;
-            groupHasMatch = false;
-        } else {
-            const text = el.textContent.toLowerCase();
-            const match = !query || text.includes(query);
-            el.style.display = match ? '' : 'none';
-            if (match) groupHasMatch = true;
-        }
-    });
-    if (currentGroup) groups.push([currentGroup, groupHasMatch]);
-    groups.forEach(([label, hasMatch]) => { label.style.display = hasMatch ? '' : 'none'; });
+    if (window.GX && window.GX.catalog) {
+        window.GX.catalog.renderDropdown(input ? input.value : '');
+        return;
+    }
 }
 
 document.addEventListener('keydown', e => {
@@ -149,23 +135,49 @@ function getEffectiveLaunchMethod() {
     return getCookie('launchMethod') || 'regular';
 }
 
-function selectVersion(path, label, isWasm) {
+function selectVersion(path, label, isWasm, silent) {
     window._customActive = false;
     _selectedVersion = path;
+    _selectedBuild = (window.GX && window.GX.catalog) ? window.GX.catalog.byId(path) : null;
+    const shown = label || path;
     const lbl = document.getElementById('version-label');
-    if (lbl) lbl.textContent = label;
+    if (lbl) lbl.textContent = shown;
     document.getElementById('version-dropdown')?.classList.remove('open');
     document.getElementById('version-select')?.classList.remove('open');
     const btn = document.getElementById('play-btn');
     if (btn) btn.disabled = false;
-    document.querySelectorAll('.version-option').forEach(o => o.classList.remove('active-ver'));
-    if (event && event.currentTarget) event.currentTarget.classList.add('active-ver');
+    document.querySelectorAll('.version-option').forEach(o => {
+        o.classList.toggle('active-ver', o.dataset.id === path);
+    });
+    if (!silent) {
+        try { _lsSet(_getPageVerKey(), JSON.stringify({ path, label: shown, isWasm: !!isWasm })); } catch (e) {}
+        try { _lsSet('gxLastBuild', path); } catch (e) {}
+    }
     const method = getEffectiveLaunchMethod();
     const modeLabels = { regular:'REGULAR', 'about-blank':'ABOUT:BLANK', 'data-uri':'DATA URI', blob:'BLOB URL', popup:'POPUP' };
     const badge = document.getElementById('mode-badge-text');
     if (badge) badge.textContent = modeLabels[method] || method.toUpperCase();
-    setStatus('VERSION: <span class="hl">' + label + '</span>');
+    setStatus('BUILD: <span class="hl">' + shown + '</span>');
+    const picked = document.getElementById('play-picked');
+    if (picked) {
+        if (_selectedBuild) {
+            picked.textContent = shown + '  ·  ' + _selectedBuild.epoch +
+                '  ·  ' + (_selectedBuild.tech === 'wasm' ? 'WASM' : 'JS') +
+                '  ·  ' + _selectedBuild.mirrors.length + ' mirror' +
+                (_selectedBuild.mirrors.length === 1 ? '' : 's');
+        } else {
+            picked.textContent = shown;
+        }
+    }
 }
+
+// Called by every build row in the picker.
+function pickBuild(build) {
+    if (!build) return;
+    selectVersion(build.id, build.label || build.name, build.tech === 'wasm');
+}
+window.GX = window.GX || {};
+window.GX.pickBuild = pickBuild;
 
 document.addEventListener('click', e => {
     if (!e.target.closest('.version-wrapper')) {
@@ -273,43 +285,6 @@ function injectServersIntoHtml(html) {
     }
 }
 
-// ===== ASSET SOURCE (round-robin across GitHub mirrors) =====
-// Each entry is a raw.githack base for a repo/fork hosting an identical copy of game/.
-// Tried in order; if one fails (rate limit, down, etc.) the next is used automatically.
-const GX_SOURCES = [
-    'https://raw.githack.com/XENOTECH-X/GX-Launcher/main',
-    'https://raw.githack.com/GX-Launcher/GX-Launcher.github.io/main'
-    // add more fork URLs here as you create them, e.g.:
-    // 'https://raw.githack.com/SOME-OTHER-ACCOUNT/GX-Launcher/main',
-];
-
-function gxBuildUrl(base, folder) {
-    return base + '/game/' + folder.split('/').map(encodeURIComponent).join('/') + '/index.html';
-}
-
-// Tries the local same-origin path first (works when game/ actually exists
-// alongside this page, e.g. on GitHub Pages). Falls back to GX_SOURCES
-// mirrors only if that fails (e.g. on Cloudflare/Bitbucket where the big
-// game files were intentionally excluded from the deploy).
-async function resolveGameUrl(folder) {
-    const localUrl = new URL('game/' + folder.split('/').map(encodeURIComponent).join('/') + '/index.html', location.href).href;
-    try {
-        const res = await fetch(localUrl, { method: 'HEAD' });
-        if (res.ok) return localUrl;
-    } catch (e) { /* fall through to mirrors */ }
-
-    for (const base of GX_SOURCES) {
-        const url = gxBuildUrl(base, folder);
-        try {
-            const res = await fetch(url, { method: 'HEAD' });
-            if (res.ok) return url;
-        } catch (e) { /* try next source */ }
-    }
-    // Everything failed — return the first mirror anyway so the user gets
-    // a real error instead of nothing happening.
-    return gxBuildUrl(GX_SOURCES[0], folder);
-}
-
 // ===== MOD COMPATIBILITY WARNING =====
 // Mods (EF_MODS, installed from mods.html) only load in these two builds.
 const MOD_COMPATIBLE_VERSIONS = ['efi-1.12.2', 'efi-1.8.8'];
@@ -345,9 +320,99 @@ async function warnIfModsWontWork() {
 }
 
 // ===== LAUNCH LOGIC =====
+/* ============================================================
+   MIRROR RESOLUTION
+   Each build exists on two or three of the mirrors. We verify every
+   candidate with a ranged GET (first 4 KB) — headers can lie, a ranged
+   body cannot — and keep the first mirror that returns real HTML.
+   ============================================================ */
+function gxMirrorTimeout() {
+    return (typeof gxSettings === 'function' && gxSettings().mirrorTimeout) || 20000;
+}
+
+function probeMirror(url, signal) {
+    /* No custom headers: a Range header would trigger a CORS preflight, and
+       GitHub Pages / raw.githubusercontent do not answer OPTIONS. A plain
+       GET is a "simple request", so the response is readable without one.
+       We read the first chunk and then cancel the body — enough to prove the
+       file exists and is really an HTML build, without downloading 40 MB. */
+    return fetch(url, { method: 'GET', signal, cache: 'no-store', credentials: 'omit' })
+        .then(res => {
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            const type = ((res.headers && res.headers.get('content-type')) || '').toLowerCase();
+            if (type && !/text\/html|text\/plain|application\/octet-stream/.test(type)) {
+                throw new Error('wrong content-type: ' + type);
+            }
+            if (!res.body || typeof res.body.getReader !== 'function') {
+                return res.text().then(t => sniffHtml(t, url));
+            }
+            const reader = res.body.getReader();
+            return reader.read().then(({ value }) => {
+                try { reader.cancel(); } catch (e) {}
+                const chunk = value ? new TextDecoder().decode(value.slice(0, 8192)) : '';
+                return sniffHtml(chunk, url);
+            });
+        });
+}
+
+function sniffHtml(text, url) {
+    if (!text || text.length < 64) throw new Error('stub or empty file');
+    if (/<html|<head|<script|<!doctype html/i.test(text)) return url;
+    throw new Error('not an html build');
+}
+
+async function resolveMirror(build) {
+    if (!build || !build.mirrors || !build.mirrors.length) throw new Error('no mirrors');
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), gxMirrorTimeout());
+
+    // Race every mirror; first verified wins. Failures are remembered so the
+    // next launch of the same build goes straight to the working mirror.
+    const cached = (() => {
+        try { return JSON.parse(_lsGet('gxMirror_' + build.id) || 'null'); } catch (e) { return null; }
+    })();
+    // A bundled copy is same-origin: it always wins, no probe and no network.
+    const local = build.mirrors.find(m => m.local);
+    if (local) {
+        try { _lsSet('gxMirror_' + build.id, JSON.stringify(local.url)); } catch (e) {}
+        clearTimeout(timer);
+        return local.url;
+    }
+
+    const pref = (typeof gxSettings === 'function' ? gxSettings().sourceOrder : 'auto');
+    let ordered = [...build.mirrors];
+    if (pref && pref !== 'auto') {
+        // user pinned a preferred source: try it first, keep the rest as backup
+        ordered.sort((a, b) => (b.id === pref ? 1 : 0) - (a.id === pref ? 1 : 0));
+    } else if (cached) {
+        ordered.sort((a, b) => (b.url === cached ? 1 : 0) - (a.url === cached ? 1 : 0));
+    }
+
+    try {
+        const winner = await Promise.any(ordered.map(m => probeMirror(m.url, ctrl.signal)));
+        try { _lsSet('gxMirror_' + build.id, JSON.stringify(winner)); } catch (e) {}
+        return winner;
+    } finally {
+        clearTimeout(timer);
+    }
+}
+
+// Opens a URL the safe way: popup if allowed, same-tab otherwise, and always
+// stays inside the preview iframe.
+function launchUrl(url, popupFeatures) {
+    const newTab = (typeof gxSettings === 'function' ? gxSettings().preferNewTab : true);
+    if (!newTab) { window.location.href = url; return false; }
+    let win = null;
+    try { win = window.open(url, '_blank', popupFeatures); } catch (e) { win = null; }
+    if (!win) window.location.href = url;
+    return !!win;
+}
+
 async function playGame() {
     if (window._customActive && window._customHtml) { return playCustom(); }
-    if (!_selectedVersion) { showToast('Select a version first.', true); return; }
+    if (!_selectedVersion) { showToast('Pick a build first.', true); return; }
+    if (!_selectedBuild) _selectedBuild = (window.GX && window.GX.catalog) ? window.GX.catalog.byId(_selectedVersion) : null;
+    if (!_selectedBuild) { showToast('That build is no longer in the catalog.', true); return; }
     await warnIfModsWontWork();
 
     // HARD OVERRIDE: on Cloudflare Workers (*.workers.dev), always use blob.
@@ -355,8 +420,16 @@ async function playGame() {
     // every time, regardless of anything else.
     const method = getEffectiveLaunchMethod();
 
-    setStatus('CHECKING SOURCE...');
-    const absUrl = await resolveGameUrl(_selectedVersion);
+    setStatus('CONNECTING...');
+    let absUrl;
+    try {
+        absUrl = await resolveMirror(_selectedBuild);
+    } catch (err) {
+        setStatus('SOURCE UNREACHABLE');
+        showToast('All mirrors failed for ' + _selectedBuild.name + '. Check your connection.', true, 6000);
+        return;
+    }
+    setStatus('SOURCE OK');
     const popupFeatures = 'width=1280,height=720,toolbar=0,menubar=0,location=0,status=0';
     const wispOn = isWispEnabled();
 
@@ -366,8 +439,8 @@ async function playGame() {
         if (wispOn) {
             showToast('WISP injection is not supported in Regular mode — use Blob or About:Blank instead.', true);
         }
-        window.open(absUrl, '_blank');
-        setStatus('LAUNCHED');
+        launchUrl(absUrl);
+        setStatus('LAUNCHED <span class="hl">' + _selectedBuild.name + '</span>');
         return;
     }
 
@@ -377,14 +450,12 @@ async function playGame() {
         _fetchWithProgress(absUrl).then(html => injectWispIntoHtml(html)).then(html => injectServersIntoHtml(html)).then(html => {
             const blob = new Blob([html], { type: 'text/html' });
             const blobUrl = URL.createObjectURL(blob);
-            const w = window.open(blobUrl, '_blank', popupFeatures);
-            if (!w) showToast('Popup blocked — allow popups for this site.', true);
+            if (!launchUrl(blobUrl, popupFeatures)) showToast('Popup blocked — opening in this tab instead.', true);
             setStatus('LAUNCHED WITH <span class="hl">WISP + POPUP</span>');
         }).catch(err => {
             showToast('WISP failed (' + err.message + ') — launching without WISP.', true);
             setStatus('WISP ERROR — LAUNCHING WITHOUT WISP');
-            const w = window.open(absUrl, '_blank', popupFeatures);
-            if (!w) showToast('Popup blocked — allow popups for this site.', true);
+            launchUrl(absUrl, popupFeatures);
         });
         return;
     }
@@ -394,8 +465,8 @@ async function playGame() {
 
 
     if (method === 'popup') {
-        const w = window.open(absUrl, '_blank', popupFeatures);
-        if (!w) showToast('Popup blocked — allow popups for this site.', true);
+        if (!launchUrl(absUrl, popupFeatures)) showToast('Popup blocked — opening in this tab instead.', true);
+        setStatus('LAUNCHED <span class="hl">' + _selectedBuild.name + '</span>');
 
     } else if (method === 'about-blank') {
         _fetchWithProgress(absUrl).then(html => {
@@ -440,7 +511,7 @@ async function playGame() {
         }).then(html => {
             const blob    = new Blob([html], { type: 'text/html' });
             const blobUrl = URL.createObjectURL(blob);
-            window.open(blobUrl, '_blank');
+            if (!launchUrl(blobUrl)) showToast('Popup blocked — opening in this tab instead.', true);
             setStatus(wispOn
                 ? 'LAUNCHED AS <span class="hl">BLOB + WISP</span>'
                 : 'LAUNCHED AS <span class="hl">BLOB URL</span>');
@@ -451,7 +522,7 @@ async function playGame() {
                 _fetchWithProgress(absUrl).then(html => injectServersIntoHtml(html)).then(html => {
                     const blob = new Blob([html], { type: 'text/html' });
                     const blobUrl = URL.createObjectURL(blob);
-                    window.open(blobUrl, '_blank');
+                    launchUrl(blobUrl);
                     setStatus('LAUNCHED AS <span class="hl">BLOB URL</span>');
                 }).catch(err2 => {
                     showToast('Fetch failed: ' + err2.message, true);
@@ -636,7 +707,8 @@ function _fetchWithProgress(url) {
 
 // ===== NAVIGATION HELPERS =====
 function redirectToNews()         { window.location.href = 'news.html'; }
-function redirectToClients()      { window.location.href = 'clients.html'; }
+function redirectToClients()      { window.location.href = 'index.html'; }  // merged into Play
+function redirectToPlay()         { window.location.href = 'index.html'; }
 function redirectToServers()      { window.location.href = 'servers.html'; }
 function redirectToMods()         { window.location.href = 'mods.html'; }
 function redirectToSkins()        { window.location.href = 'skins.html'; }
@@ -861,3 +933,295 @@ async function playCustom() {
     const safe = name.replace(/[&<>"]/g, ch => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[ch]));
     setStatus('LAUNCHED <span class="hl">CUSTOM: ' + safe + '</span>');
 }
+
+// Shows how many builds the picker knows about, on the Play screens.
+function paintCatalogLine() {
+    const el = document.getElementById('play-catalog-line');
+    if (!el || !window.GX || !window.GX.catalog) return;
+    const c = window.GX.catalog.counts();
+    const sources = (window.GX_BUILD_SOURCES || []).filter(x => !x.unavailable).length;
+    el.innerHTML = '<b>' + c.total + '</b> builds across <b>' + sources +
+        '</b> mirrors &middot; <b>' + c.byTech.wasm + '</b> WASM &middot; restart-free';
+}
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', paintCatalogLine);
+else paintCatalogLine();
+
+
+/* ============================================================
+   3.0 SETTINGS
+   Every preference lives in a single gxSettings object so it can be
+   exported, imported and reset in one place.
+   ============================================================ */
+const GX_SETTING_DEFAULTS = {
+    sourceOrder: 'auto',
+    mirrorTimeout: 20000,
+    rememberBuild: true,
+    preferNewTab: true,
+    autofocusGame: true,
+    keyboardLock: true,
+    injectServers: true,
+    extraRender: false,
+    showBadges: true,
+    compactPicker: false,
+    reduceMotion: false
+};
+
+function gxSettings() {
+    let saved = {};
+    try { saved = JSON.parse(_lsGet('gxSettings') || '{}'); } catch (e) { saved = {}; }
+    return Object.assign({}, GX_SETTING_DEFAULTS, saved);
+}
+
+function gxSaveSetting(key, value) {
+    const all = gxSettings();
+    all[key] = value;
+    _lsSet('gxSettings', JSON.stringify(all));
+    gxApplySettings();
+}
+
+function gxApplySettings() {
+    const s = gxSettings();
+    document.documentElement.classList.toggle('gx-reduce-motion', !!s.reduceMotion);
+    document.documentElement.classList.toggle('gx-compact-picker', !!s.compactPicker);
+    document.documentElement.classList.toggle('gx-no-badges', !s.showBadges);
+}
+
+function saveToggle(key, value) { gxSaveSetting(key, value); }
+function saveSourceOrder(v) { gxSaveSetting('sourceOrder', v); }
+function saveMirrorTimeout(v) { gxSaveSetting('mirrorTimeout', parseInt(v, 10) || 20000); }
+function saveRememberBuild(v) { gxSaveSetting('rememberBuild', v); }
+function savePreferNewTab(v) { gxSaveSetting('preferNewTab', v); }
+
+function gxSyncSettingsUi() {
+    const s = gxSettings();
+    const set = (id, v) => { const el = document.getElementById(id); if (el) el.checked = !!v; };
+    set('remember-build', s.rememberBuild);
+    set('prefer-new-tab', s.preferNewTab);
+    set('autofocus-game', s.autofocusGame);
+    set('keyboard-lock', s.keyboardLock);
+    set('inject-servers', s.injectServers);
+    set('extra-render', s.extraRender);
+    set('show-badges', s.showBadges);
+    set('compact-picker', s.compactPicker);
+    set('reduce-motion', s.reduceMotion);
+    const so = document.getElementById('source-order'); if (so) so.value = s.sourceOrder;
+    const mt = document.getElementById('mirror-timeout'); if (mt) mt.value = String(s.mirrorTimeout);
+
+    // catalogue line
+    const stats = document.getElementById('catalog-stats');
+    if (stats && window.GX && window.GX.catalog) {
+        const c = window.GX.catalog.counts();
+        const nSources = (window.GX_BUILD_SOURCES || []).filter(x => !x.unavailable).length;
+        const live = window.GX.catalog.liveStatus && window.GX.catalog.liveStatus();
+        stats.textContent = c.total + ' builds from ' + nSources + ' mirrors (' +
+            c.byTech.wasm + ' WASM, ' + c.byTech.js + ' JS) across ' +
+            Object.keys(c.byEpoch).length + ' eras' +
+            (live ? ' — file lists live from ' + live.families.length + ' publishers.' : ' — built-in verified list.');
+        const ls = document.getElementById('live-status');
+        if (ls) ls.textContent = live
+            ? 'File lists refreshed from ' + live.families.join(', ') + '. Press the button to check again now.'
+            : 'Checks every publisher for newly uploaded builds. Falls back to the built-in list if a publisher is offline.';
+    }
+
+    renderSourceList();
+    refreshStorageInfo();
+}
+
+function refreshBuildList(force) {
+    if (!window.GX || !window.GX.catalog || !window.GX.catalog.refresh) {
+        showToast('Build catalogue is not loaded on this page.', true); return;
+    }
+    const el = document.getElementById('live-status');
+    if (el) el.textContent = 'Checking publishers...';
+    showToast('Checking publishers for new builds...');
+    window.GX.catalog.refresh({ force: !!force }).then(r => {
+        const total = window.GX.catalog.counts().total;
+        if (r.offline && el) {
+            el.textContent = 'You are offline — using the built-in list of ' + total + ' builds. Bundled builds still launch.';
+            showToast('Offline — bundled builds still work.', true);
+            return;
+        }
+        if (el) el.textContent = r.tried
+            ? 'Checked ' + r.tried + ' publisher' + (r.tried === 1 ? '' : 's') + '. ' + total +
+              ' builds available' + (r.added ? ' (' + r.added + ' change' + (r.added === 1 ? '' : 's') + ' picked up).' : '.')
+            : 'No publisher answered — using the built-in list of ' + total + ' builds.';
+        gxSyncSettingsUi();
+        renderSourceList();
+        showToast(r.added ? 'Build list updated: ' + r.added + ' change(s).' : 'Build list already up to date.');
+    });
+}
+
+function verifyAllMirrors() {
+    if (!window.GX || !window.GX.catalog) return;
+    const builds = window.GX.catalog.all();
+    showToast('Verifying ' + builds.length + ' builds across every mirror...');
+    let done = 0, ok = 0, dead = 0;
+    builds.forEach(b => {
+        const ctrl = new AbortController();
+        const t = setTimeout(() => ctrl.abort(), 12000);
+        Promise.all(b.mirrors.map(m => fetch(m.url, { method: 'GET', headers: { Range: 'bytes=0-63' }, signal: ctrl.signal, credentials: 'omit' })
+            .then(r => r.ok || r.status === 206).catch(() => false)))
+            .then(results => {
+                clearTimeout(t);
+                done++;
+                if (results.some(Boolean)) ok++; else dead++;
+                if (done === builds.length) {
+                    showToast('Mirror check finished: ' + ok + ' reachable, ' + dead + ' unreachable.', dead > 0);
+                }
+            });
+    });
+}
+
+function clearMirrorCache() {
+    try {
+        const keys = [];
+        for (let i = 0; i < localStorage.length; i++) {
+            const k = localStorage.key(i);
+            if (k && k.startsWith('gxMirror_')) keys.push(k);
+        }
+        keys.forEach(k => localStorage.removeItem(k));
+    } catch (e) {}
+    gxSyncSettingsUi();
+    showToast('Mirror cache cleared.');
+}
+
+function renderSourceList() {
+    const host = document.getElementById('source-list');
+    if (!host) return;
+    const srcs = window.GX_BUILD_SOURCES || [];
+    if (!srcs.length) { host.innerHTML = '<div class="gx-empty">Source list not loaded.</div>'; return; }
+    host.innerHTML = srcs.map(s => {
+        const n = (s.files || []).length;
+        const state = s.unavailable
+            ? 'unsupported'
+            : n + ' file' + (n === 1 ? '' : 's');
+        return '<div class="gx-source' + (s.unavailable ? ' off' : '') + '">' +
+            '<span class="gx-source-id">' + window.GX.catalog.esc(s.id) + '</span>' +
+            '<span class="gx-source-label">' + window.GX.catalog.esc(s.label) + '</span>' +
+            '<span class="gx-source-n">' + state + '</span></div>' +
+            (s.note ? '<div class="gx-source-note">' + window.GX.catalog.esc(s.note) + '</div>' : '');
+    }).join('');
+}
+
+function mirrorCacheCount() {
+    let n = 0;
+    try {
+        for (let i = 0; i < localStorage.length; i++) {
+            if ((localStorage.key(i) || '').startsWith('gxMirror_')) n++;
+        }
+    } catch (e) {}
+    return n;
+}
+
+function refreshStorageInfo() {
+    const mc = document.getElementById('mirror-cache-desc');
+    if (mc) {
+        const n = mirrorCacheCount();
+        mc.textContent = n
+            ? n + ' build' + (n === 1 ? '' : 's') + ' resolved to a working mirror.'
+            : 'No mirrors probed yet — the first launch of each build records one.';
+    }
+    const el = document.getElementById('storage-desc');
+    if (!el) return;
+    let bytes = 0, entries = 0;
+    try {
+        for (let i = 0; i < localStorage.length; i++) {
+            const k = localStorage.key(i);
+            bytes += k.length + (localStorage.getItem(k) || '').length;
+            entries++;
+        }
+    } catch (e) {}
+    el.textContent = entries + ' keys, about ' + (bytes / 1024).toFixed(1) + ' KB of launcher settings stored locally.';
+}
+
+function exportSettings() {
+    const data = {
+        gxLauncher: '3.0',
+        exported: new Date().toISOString(),
+        settings: gxSettings(),
+        username: _lsGet('username') || '',
+        launchMethod: getCookie('launchMethod') || 'regular',
+        theme: getCookie('launcherTheme') || 'default',
+        uiScale: _lsGet('uiScale') || '1',
+        wisp: { enabled: getCookie('wispEnabled') === 'true', url: getCookie('wispUrl') || '' },
+        servers: (() => { try { return JSON.parse(_lsGet('gxCustomServers') || '[]'); } catch (e) { return []; } })()
+    };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'gx-launcher-settings.json';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 3000);
+    showToast('Settings exported.');
+}
+
+function importSettings(input) {
+    const f = input.files && input.files[0];
+    input.value = '';
+    if (!f) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+        let data;
+        try { data = JSON.parse(reader.result); } catch (e) {
+            showToast('That file is not valid JSON.', true); return;
+        }
+        if (!data || !data.settings) { showToast('Not a GX-Launcher settings file.', true); return; }
+        _lsSet('gxSettings', JSON.stringify(Object.assign({}, GX_SETTING_DEFAULTS, data.settings)));
+        if (data.username) _lsSet('username', data.username);
+        if (data.launchMethod) setCookie('launchMethod', data.launchMethod, 365);
+        if (data.theme) setCookie('launcherTheme', data.theme, 365);
+        if (data.uiScale) _lsSet('uiScale', data.uiScale);
+        if (data.wisp) {
+            setCookie('wispEnabled', String(!!data.wisp.enabled), 365);
+            if (data.wisp.url) setCookie('wispUrl', data.wisp.url, 365);
+        }
+        if (Array.isArray(data.servers)) _lsSet('gxCustomServers', JSON.stringify(data.servers));
+        location.reload();
+    };
+    reader.readAsText(f);
+}
+
+function resetEverything() {
+    if (!confirm('Reset every launcher setting, cached mirror result and saved profile?')) return;
+    try {
+        const kill = [];
+        for (let i = 0; i < localStorage.length; i++) {
+            const k = localStorage.key(i);
+            if (k && !k.startsWith('gx_ver_')) kill.push(k);
+        }
+        kill.forEach(k => localStorage.removeItem(k));
+    } catch (e) {}
+    showToast('Launcher reset.');
+    setTimeout(() => location.reload(), 600);
+}
+
+// Launch a random build. Bundled builds are favoured so it always works.
+function launchRandomBuild() {
+    if (!window.GX || !window.GX.catalog) { showToast('Build catalogue not loaded.', true); return; }
+    const all = window.GX.catalog.all();
+    const offline = all.filter(b => b.mirrors.some(m => m.local) && !b.isMobile);
+    const pool = offline.length ? offline : all;
+    const pick = pool[Math.floor(Math.random() * pool.length)];
+    pickBuild(pick);
+    playGame();
+}
+
+// Restore the last played build when the user asked for it.
+function gxRestoreLastBuild() {
+    if (!gxSettings().rememberBuild) return;
+    if (document.getElementById('version-label')?.textContent !== 'Select Version' &&
+        document.getElementById('version-label')?.textContent !== 'Select a build') return;
+    const id = _lsGet('gxLastBuild');
+    if (!id || !window.GX || !window.GX.catalog) return;
+    const b = window.GX.catalog.byId(id);
+    if (b) selectVersion(b.id, b.label || b.name, b.tech === 'wasm', true);
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    gxApplySettings();
+    gxSyncSettingsUi();
+    setTimeout(gxRestoreLastBuild, 300);
+});

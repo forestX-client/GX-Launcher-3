@@ -462,7 +462,7 @@ nav::-webkit-scrollbar-thumb { background: var(--scroll); }
   right: 0;
   background: var(--bg2);
   border: 1px solid var(--border2);
-  max-height: 230px;
+  max-height: min(56vh, 430px);
   overflow-y: auto;
   display: none;
   z-index: 1000;
@@ -878,3 +878,100 @@ nav::-webkit-scrollbar-thumb { background: var(--scroll); }
 }
 .upload-option:hover { background: var(--accent-glow); color: var(--text-bright); }
 .upload-option .up-ico { width: 18px; text-align: center; font-size: 14px; flex-shrink: 0; }
+
+/* ============================================================
+   3.0 — BUILD PICKER
+   ============================================================ */
+.gx-chiprow {
+  display: flex; flex-wrap: wrap; gap: 4px;
+  padding: 8px; border-bottom: 1px solid var(--border);
+  background: var(--bg2);
+}
+.gx-chip {
+  font-family: var(--mono); font-size: 8.5px; letter-spacing: 0.06em;
+  text-transform: uppercase; padding: 4px 7px; cursor: pointer;
+  background: transparent; color: var(--text-dim);
+  border: 1px solid var(--border); border-radius: 2px; white-space: nowrap;
+}
+.gx-chip b { font-weight: 400; opacity: 0.5; margin-left: 4px; }
+.gx-chip:hover { color: var(--text); border-color: var(--text-dim); }
+.gx-chip.on { color: var(--accent); border-color: var(--accent); background: var(--accent-glow); }
+.gx-chip.on b { opacity: 1; color: var(--accent); }
+
+.gx-tag {
+  font-family: var(--mono); font-size: 7.5px; letter-spacing: 0.08em;
+  padding: 1px 4px; border: 1px solid var(--border); border-radius: 2px;
+  color: var(--text-dim); margin-left: auto; flex: 0 0 auto;
+}
+.gx-tag.wasm { color: #ffb300; border-color: #6b4a00; }
+.gx-empty {
+  padding: 22px 14px; text-align: center; font-family: var(--mono);
+  font-size: 10px; color: var(--text-dim); line-height: 1.8;
+}
+
+/* played build summary on the Play page */
+.play-info {
+  position: absolute; left: 20px; bottom: 18px; right: 20px; z-index: 3;
+  display: flex; flex-direction: column; gap: 6px; pointer-events: none;
+}
+.play-catalog-line {
+  font-family: var(--mono); font-size: 9px; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--text-dim);
+}
+.play-catalog-line b { color: var(--accent); font-weight: 400; }
+.play-picked {
+  font-family: var(--mono); font-size: 11px; color: var(--text-bright);
+  background: rgba(6,6,6,0.7); border-left: 2px solid var(--accent);
+  padding: 6px 10px; backdrop-filter: blur(6px); display: inline-block;
+  max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* ---------- 3.0 setting toggles / preferences ---------- */
+.sw { position: relative; display: inline-block; width: 38px; height: 20px; flex: 0 0 auto; cursor: pointer; }
+.sw input { opacity: 0; width: 0; height: 0; }
+.sw i {
+  position: absolute; inset: 0; background: var(--bg3);
+  border: 1px solid var(--border); border-radius: 10px; transition: background .14s, border-color .14s;
+}
+.sw i::after {
+  content: ''; position: absolute; left: 2px; top: 2px; width: 14px; height: 14px;
+  background: var(--text-dim); border-radius: 50%; transition: transform .14s, background .14s;
+}
+.sw input:checked + i { background: var(--accent-glow); border-color: var(--accent); }
+.sw input:checked + i::after { transform: translateX(18px); background: var(--accent); }
+
+/* respect reduce-motion + user prefs */
+.gx-reduce-motion *, .gx-reduce-motion *::before, .gx-reduce-motion *::after {
+  transition: none !important; animation: none !important;
+}
+.gx-reduce-motion body::before { display: none; }
+.gx-no-badges .gx-tag { display: none; }
+.gx-compact-picker .gx-chiprow { display: none; }
+
+/* ---------- 3.0 source list ---------- */
+.gx-sourcelist { display: flex; flex-direction: column; gap: 2px; font-family: var(--mono); }
+.gx-source {
+  display: grid; grid-template-columns: 92px 1fr auto; gap: 10px; align-items: baseline;
+  padding: 5px 8px; border: 1px solid var(--border); background: var(--bg2);
+  font-size: 9.5px; color: var(--text);
+}
+.gx-source-id { color: var(--accent); letter-spacing: 0.04em; }
+.gx-source-label { color: var(--text-dim); }
+.gx-source-n { color: var(--text-dim); font-size: 8.5px; text-transform: uppercase; letter-spacing: 0.08em; }
+.gx-source.off { opacity: 0.5; }
+.gx-source.off .gx-source-id { color: var(--text-dim); text-decoration: line-through; }
+.gx-source.off .gx-source-n { color: #c0392b; }
+.gx-source-note {
+  font-size: 8.5px; color: var(--text-dim); line-height: 1.6;
+  padding: 0 8px 6px 110px; margin-top: -2px;
+}
+.gx-tag.local { color: #3ddc84; border-color: #1f5c3a; }
+
+/* random pick button in the launch bar */
+.ghost-btn {
+  font-family: var(--mono); font-size: 9px; letter-spacing: 0.14em;
+  padding: 0 14px; height: 34px; cursor: pointer; align-self: center;
+  background: transparent; color: var(--text-dim);
+  border: 1px solid var(--border); border-radius: 2px;
+}
+.ghost-btn:hover { color: var(--accent); border-color: var(--accent); }

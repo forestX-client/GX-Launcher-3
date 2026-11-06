@@ -6,6 +6,9 @@
   <title>GX-Launcher</title>
   <link rel="icon" type="image/png" href="resources/main.png">
   <link rel="stylesheet" href="styles.css">
+  <script src="local-builds.js" defer></script>
+  <script src="builds-data.js" defer></script>
+  <script src="catalog.js" defer></script>
   <script src="script.js" defer></script>
   <style>
     /* ── WISP SECTION ── */
@@ -145,12 +148,8 @@
           Update Log
         </div>
         <div class="nav-item" onclick="redirectToMain()">
-          <svg class="nav-svg" viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="13" rx="1"/><path d="M8 7V5a2 2 0 012-2h4a2 2 0 012 2v2"/><line x1="12" y1="12" x2="12" y2="16"/><line x1="10" y1="14" x2="14" y2="14"/></svg>
-          Game
-        </div>
-        <div class="nav-item" onclick="redirectToClients()">
-          <svg class="nav-svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/></svg>
-          Clients
+          <svg class="nav-svg" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          Play
         </div>
         <div class="nav-item" onclick="redirectToServers()">
           <svg class="nav-svg" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="5" rx="1"/><rect x="2" y="10" width="20" height="5" rx="1"/><rect x="2" y="17" width="20" height="5" rx="1"/></svg>
@@ -337,6 +336,189 @@
           <!-- Compatibility note -->
           <div class="wisp-compat-note">
             <span>Compatible clients:</span> EaglercraftX and other clients based on EaglercraftX that use the standard <code>eaglercraftXOpts</code> / WebSocket API. Not compatible with Data URI launch mode.
+          </div>
+        </div>
+
+
+        <!-- ================= BUILD LIBRARY ================= -->
+        <div class="settings-section">
+          <div class="settings-section-title">Build Library</div>
+
+          <div class="settings-row">
+            <div>
+              <div class="settings-label">Catalogue</div>
+              <div class="settings-desc" id="catalog-stats">Loading builds...</div>
+            </div>
+            <button class="settings-btn-ghost" onclick="verifyAllMirrors()">Verify mirrors</button>
+          </div>
+
+          <div class="settings-row">
+            <div>
+              <div class="settings-label">Refresh build list</div>
+              <div class="settings-desc" id="live-status">Checks every publisher for newly uploaded builds. Falls back to the built-in list if a publisher is offline.</div>
+            </div>
+            <button class="settings-btn" onclick="refreshBuildList(true)">Check for new builds</button>
+          </div>
+
+          <div class="settings-row">
+            <div>
+              <div class="settings-label">Source order</div>
+              <div class="settings-desc">Which mirror is tried first when a build exists on more than one.</div>
+            </div>
+            <select class="settings-input" id="source-order" onchange="saveSourceOrder(this.value)" style="width:auto">
+              <option value="auto">Auto (fastest wins)</option>
+              <option value="apex">Apex-Launcher</option>
+              <option value="play">TheCookeringYT/play</option>
+              <option value="arham">UserArham/version</option>
+            </select>
+          </div>
+
+          <div class="settings-row">
+            <div>
+              <div class="settings-label">Mirror timeout</div>
+              <div class="settings-desc">How long to wait for one mirror before trying the next.</div>
+            </div>
+            <select class="settings-input" id="mirror-timeout" onchange="saveMirrorTimeout(this.value)" style="width:auto">
+              <option value="8000">8 seconds</option>
+              <option value="20000">20 seconds (default)</option>
+              <option value="45000">45 seconds</option>
+            </select>
+          </div>
+
+          <div class="settings-row">
+            <div>
+              <div class="settings-label">Remember last build</div>
+              <div class="settings-desc">Re-select the build you played last when the launcher opens.</div>
+            </div>
+            <label class="sw"><input type="checkbox" id="remember-build" onchange="saveRememberBuild(this.checked)"><i></i></label>
+          </div>
+
+          <div class="settings-row">
+            <div>
+              <div class="settings-label">Open in new tab</div>
+              <div class="settings-desc">Launch builds in a popup window instead of replacing the launcher tab.</div>
+            </div>
+            <label class="sw"><input type="checkbox" id="prefer-new-tab" onchange="savePreferNewTab(this.checked)"><i></i></label>
+          </div>
+
+          <div class="settings-row" style="flex-direction:column;align-items:stretch;gap:8px">
+            <div>
+              <div class="settings-label">Sources</div>
+              <div class="settings-desc">Every host the launcher can pull builds from. A build is launched from whichever source answers first.</div>
+            </div>
+            <div id="source-list" class="gx-sourcelist"></div>
+          </div>
+
+          <div class="settings-row">
+            <div>
+              <div class="settings-label">Cached mirror results</div>
+              <div class="settings-desc" id="mirror-cache-desc">No mirrors probed yet.</div>
+            </div>
+            <button class="settings-btn-ghost" onclick="clearMirrorCache()">Clear cache</button>
+          </div>
+        </div>
+
+        <!-- ================= GAMEPLAY ================= -->
+        <div class="settings-section">
+          <div class="settings-section-title">Gameplay</div>
+
+          <div class="settings-row">
+            <div>
+              <div class="settings-label">Auto-focus game</div>
+              <div class="settings-desc">Clicks and key presses go straight to the game canvas, so mouse look and WASD work without a second click.</div>
+            </div>
+            <label class="sw"><input type="checkbox" id="autofocus-game" onchange="saveToggle('autofocusGame', this.checked)"><i></i></label>
+          </div>
+
+          <div class="settings-row">
+            <div>
+              <div class="settings-label">Keyboard lock</div>
+              <div class="settings-desc">Capture the keyboard while playing so Alt+Tab and Ctrl+W don't leave the game.</div>
+            </div>
+            <label class="sw"><input type="checkbox" id="keyboard-lock" onchange="saveToggle('keyboardLock', this.checked)"><i></i></label>
+          </div>
+
+          <div class="settings-row">
+            <div>
+              <div class="settings-label">Default servers</div>
+              <div class="settings-desc">Add the GX server list to every build you launch.</div>
+            </div>
+            <label class="sw"><input type="checkbox" id="inject-servers" onchange="saveToggle('injectServers', this.checked)"><i></i></label>
+          </div>
+
+          <div class="settings-row">
+            <div>
+              <div class="settings-label">Extra render distance</div>
+              <div class="settings-desc">Ask the client for a longer view distance where it supports it. Costs memory.</div>
+            </div>
+            <label class="sw"><input type="checkbox" id="extra-render" onchange="saveToggle('extraRender', this.checked)"><i></i></label>
+          </div>
+        </div>
+
+        <!-- ================= APPEARANCE ================= -->
+        <div class="settings-section">
+          <div class="settings-section-title">Appearance</div>
+
+          <div class="settings-row">
+            <div>
+              <div class="settings-label">Show build badges</div>
+              <div class="settings-desc">WASM / WISPCRAFT / MOBILE tags in the build picker.</div>
+            </div>
+            <label class="sw"><input type="checkbox" id="show-badges" onchange="saveToggle('showBadges', this.checked)"><i></i></label>
+          </div>
+
+          <div class="settings-row">
+            <div>
+              <div class="settings-label">Compact picker</div>
+              <div class="settings-desc">Hide the epoch filters for a shorter dropdown.</div>
+            </div>
+            <label class="sw"><input type="checkbox" id="compact-picker" onchange="saveToggle('compactPicker', this.checked)"><i></i></label>
+          </div>
+
+          <div class="settings-row">
+            <div>
+              <div class="settings-label">Reduce motion</div>
+              <div class="settings-desc">Turns off transitions and the scanline overlay.</div>
+            </div>
+            <label class="sw"><input type="checkbox" id="reduce-motion" onchange="saveToggle('reduceMotion', this.checked)"><i></i></label>
+          </div>
+        </div>
+
+        <!-- ================= DATA ================= -->
+        <div class="settings-section">
+          <div class="settings-section-title">Data &amp; Storage</div>
+
+          <div class="settings-row">
+            <div>
+              <div class="settings-label">Local data</div>
+              <div class="settings-desc" id="storage-desc">—</div>
+            </div>
+            <button class="settings-btn-ghost" onclick="refreshStorageInfo()">Refresh</button>
+          </div>
+
+          <div class="settings-row">
+            <div>
+              <div class="settings-label">Export settings</div>
+              <div class="settings-desc">Download every launcher preference as a JSON file.</div>
+            </div>
+            <button class="settings-btn-ghost" onclick="exportSettings()">Export</button>
+          </div>
+
+          <div class="settings-row">
+            <div>
+              <div class="settings-label">Import settings</div>
+              <div class="settings-desc">Restore a previously exported JSON file.</div>
+            </div>
+            <button class="settings-btn" onclick="document.getElementById('settings-import').click()">Import</button>
+            <input type="file" id="settings-import" accept="application/json,.json" style="display:none" onchange="importSettings(this)">
+          </div>
+
+          <div class="settings-row">
+            <div>
+              <div class="settings-label">Reset everything</div>
+              <div class="settings-desc">Clears settings, cached mirror results and the saved profile.</div>
+            </div>
+            <button class="settings-btn" onclick="resetEverything()">Reset</button>
           </div>
         </div>
 
