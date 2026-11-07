@@ -1226,3 +1226,40 @@ body::before {
   color: var(--text-dim);
 }
 .copy-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+/* ============================================================
+   PAGE HEADER (chat, news, settings)
+   These pages kept a .top-bar element; the 3.0 sheet had no rule for it,
+   so the game title and breadcrumb collapsed into each other.
+   ============================================================ */
+.top-bar {
+  flex-shrink: 0;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 var(--pad);
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+}
+.top-bar .game-title {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+.top-bar .game-title span { color: var(--accent); }
+.top-bar .breadcrumb {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .1em;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+@media (max-width: 620px) {
+  .top-bar { min-height: 38px; }
+  .top-bar .breadcrumb { display: none; }
+}

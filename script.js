@@ -23,6 +23,7 @@ function showToast(msg, isError, ms) {
     clearTimeout(_toastTimer);
     _toastTimer = setTimeout(() => t.classList.remove('show'), ms || 3000);
 }
+window.showToast = showToast;
 
 // ===== STATUS LINE =====
 function setStatus(html) {
@@ -222,6 +223,8 @@ function pickBuild(build) {
 }
 window.GX = window.GX || {};
 window.GX.pickBuild = pickBuild;
+window.pickBuild = pickBuild;
+window.gxToggleNav = gxToggleNav;
 window.GX.toggleNav = gxToggleNav;
 
 // ===== ENVIRONMENT DETECTION =====
@@ -279,6 +282,8 @@ function pickBuild(build) {
 }
 window.GX = window.GX || {};
 window.GX.pickBuild = pickBuild;
+window.pickBuild = pickBuild;
+window.gxToggleNav = gxToggleNav;
 window.GX.toggleNav = gxToggleNav;
 
 // ===== ENVIRONMENT DETECTION =====
@@ -588,8 +593,13 @@ function launchUrl(url, popupFeatures) {
     return !!win;
 }
 
-async function playGame() {
+async function playGame(build) {
     if (window._customActive && window._customHtml) { return playCustom(); }
+    /* The Arcade page has no build picker, so it hands the build straight in. */
+    if (build && build.id) {
+        _selectedVersion = build.id;
+        _selectedBuild = build;
+    }
     if (!_selectedVersion) { showToast('Pick a build first.', true); return; }
     if (!_selectedBuild) _selectedBuild = (window.GX && window.GX.catalog) ? window.GX.catalog.byId(_selectedVersion) : null;
     if (!_selectedBuild) { showToast('That build is no longer in the catalog.', true); return; }
@@ -702,6 +712,8 @@ async function playGame() {
 
     gxAfterLaunch();
 }
+
+window.playGame = playGame;
 
 /* Insert a <base> pointing at the mirror so every relative asset in the build
    resolves correctly once the HTML is no longer living at that origin. */
@@ -973,6 +985,7 @@ function redirectToMain()         { window.location.href = 'index.html'; }
 function redirectToDownloads()    { window.location.href = 'downloads.html'; }
 function redirectToSettings()     { window.location.href = 'settings.html'; }
 function redirectToChat()         { window.location.href = 'chat.html'; }
+function redirectToArcade()       { window.location.href = 'arcade.html'; }
 
 // ===== SETTINGS PAGE ACTIONS =====
 function saveUsername() {
