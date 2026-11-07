@@ -53,20 +53,22 @@ const GX_THEMES = {
     'green':    { '--accent':'#00cc44','--accent-hi':'#00ff55','--accent-dim':'#006622','--accent-glow':'rgba(0,180,60,0.18)','--border':'#2a2a2a','--border2':'#00802b','--bg':'#070707','--bg2':'#0b0b0b','--bg3':'#101010','--panel':'#0d0d0d' },
     'blood':    { '--accent':'#cc0000','--accent-hi':'#ff4444','--accent-dim':'#800000','--accent-glow':'rgba(200,0,0,0.22)','--border2':'#4a0000','--bg':'#080000','--bg2':'#0d0000','--bg3':'#120000','--panel':'#0f0000' },
     'midnight': { '--accent':'#5566ff','--accent-hi':'#7788ff','--accent-dim':'#2233bb','--accent-glow':'rgba(80,100,255,0.18)','--border2':'#1a2050','--bg':'#070710','--bg2':'#0c0c1a','--bg3':'#111125','--panel':'#0e0e1e' },
-    'ash':      { '--accent':'#999999','--accent-hi':'#cccccc','--accent-dim':'#555555','--accent-glow':'rgba(150,150,150,0.15)','--border2':'#404040' },
+    'ash':      { '--accent':'#999999','--accent-hi':'#cccccc','--accent-dim':'#555555','--accent-glow':'rgba(150,150,150,0.15)','--border':'#2e2e2e','--border2':'#404040' },
     'amber':    { '--accent':'#cc7700','--accent-hi':'#ffaa00','--accent-dim':'#7a4400','--accent-glow':'rgba(200,120,0,0.18)','--border2':'#3a2200','--bg':'#090600','--bg2':'#100d00','--bg3':'#181200','--panel':'#130f00' },
     'blue':       { '--accent':'#3d8bff','--accent-hi':'#6aa8ff','--accent-dim':'#1c4a99','--accent-glow':'rgba(60,130,255,0.18)','--border':'#2a2a2a','--border2':'#2563c4','--bg':'#070707','--bg2':'#0b0b0b','--bg3':'#101010','--panel':'#0d0d0d' },
     'amber-grey': { '--accent':'#e07b00','--accent-hi':'#ffa326','--accent-dim':'#8a4a00','--accent-glow':'rgba(224,123,0,0.18)','--border':'#2a2a2a','--border2':'#a85a00','--bg':'#070707','--bg2':'#0b0b0b','--bg3':'#101010','--panel':'#0d0d0d' },
     'matrix':     { '--accent':'#00cc44','--accent-hi':'#00ff55','--accent-dim':'#006622','--accent-glow':'rgba(0,180,60,0.15)','--bg':'#010a04','--bg2':'#04110a','--bg3':'#07180e','--panel':'#05130a','--border':'#12331f','--border2':'#003318','--text':'#9fd9b0','--text-dim':'#2f6b44','--text-bright':'#d6ffe3' },
     'light':      { '--accent':'#cc0000','--accent-hi':'#e01010','--accent-dim':'#e8a0a0','--accent-glow':'rgba(200,0,0,0.12)','--bg':'#f1f1f1','--bg2':'#e7e7e7','--bg3':'#dddddd','--panel':'#fafafa','--border':'#cfcfcf','--border2':'#b5b5b5','--scroll':'#b5b5b5','--line2':'#b5b5b5','--text':'#333333','--text-dim':'#7a7a7a','--text-bright':'#111111','--hover':'rgba(0,0,0,0.05)' },
 };
+/* Must mirror the :root token values in styles.css. If these drift, choosing a
+   theme silently shifts the base palette back to an older design. */
 const GX_DEFAULTS = {
     '--accent':'#cc0000','--accent-hi':'#ff2222','--accent-dim':'#7a0000',
-    '--accent-glow':'rgba(180,0,0,0.18)','--bg':'#0a0a0a','--bg2':'#111111',
-    '--bg3':'#181818','--panel':'#141414','--border2':'#404040',
-    '--border':'#2a2a2a','--scroll':'#404040','--line2':'#404040','--text':'#cccccc','--text-dim':'#555555','--text-bright':'#eeeeee','--hover':'rgba(255,255,255,0.035)'
+    '--accent-glow':'rgba(200,0,0,0.22)','--bg':'#070707','--bg2':'#0b0b0b',
+    '--bg3':'#101010','--panel':'#0d0d0d','--border':'#242424','--border2':'#8a0000',
+    '--scroll':'#3a3a3a','--line2':'#404040','--text':'#c8c8c8',
+    '--text-dim':'#6a6a6a','--text-bright':'#f2f2f2','--hover':'rgba(255,255,255,0.04)'
 };
-
 function applyTheme(name) {
     const root = document.documentElement;
     for (const [k, v] of Object.entries(GX_DEFAULTS)) root.style.setProperty(k, v);
@@ -81,44 +83,146 @@ function applyTheme(name) {
 function updateNavVisibility() {}
 function toggleModMaker() {}
 
-// ===== VERSION SELECTOR =====
+// ===== NAVIGATION DRAWER =====
+/* Under 1000px the rail becomes a drawer; above that it is always visible and
+   the toggle is hidden, so this is a no-op on desktop. */
+let _navOpen = false;
+function gxToggleNav(force) {
+    const rail = document.getElementById('gx-sidebar');
+    const scrim = document.getElementById('nav-scrim');
+    if (!rail) return;
+    _navOpen = (typeof force === 'boolean') ? force : !_navOpen;
+    rail.classList.toggle('open', _navOpen);
+    if (scrim) scrim.classList.toggle('show', _navOpen);
+    document.body.classList.toggle('nav-open', _navOpen);
+}
+
+document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && _navOpen) gxToggleNav(false);
+});
+
+// ===== BUILD SELECTION =====
 let _selectedVersion = '';
 let _selectedBuild = null;   // catalog entry for the current selection
 
+/* The picker is always visible now, so there is no dropdown to open. Kept as
+   an alias so older inline handlers and bookmarks do not throw. */
 function toggleVersionDropdown() {
-    const dd  = document.getElementById('version-dropdown');
-    const sel = document.getElementById('version-select');
-    if (!dd) return;
-    const isOpen = dd.classList.toggle('open');
-    sel.classList.toggle('open', isOpen);
-    if (isOpen && window.GX && window.GX.catalog) window.GX.catalog.renderDropdown('');
-    const search = document.getElementById('version-search');
-    if (search) {
-        if (isOpen) {
-            search.value = '';
-            filterVersionDropdown(search);
-            setTimeout(() => search.focus(), 0);
-        }
-    }
+    if (window.GX && window.GX.catalog) window.GX.catalog.renderDropdown('');
+    document.getElementById('version-search')?.focus();
 }
 
 function filterVersionDropdown(input) {
     if (window.GX && window.GX.catalog) {
         window.GX.catalog.renderDropdown(input ? input.value : '');
-        return;
     }
 }
 
-document.addEventListener('keydown', e => {
-    if (e.key === 'Escape') {
-        const dd = document.getElementById('version-dropdown');
-        const sel = document.getElementById('version-select');
-        if (dd && dd.classList.contains('open')) {
-            dd.classList.remove('open');
-            sel.classList.remove('open');
-        }
+function selectVersion(path, label, isWasm, silent) {
+    window._customActive = false;
+    _selectedVersion = path;
+    _selectedBuild = (window.GX && window.GX.catalog) ? window.GX.catalog.byId(path) : null;
+    const shown = label || path;
+
+    const btn = document.getElementById('play-btn');
+    if (btn) btn.disabled = false;
+
+    document.querySelectorAll('.version-option').forEach(o => {
+        o.classList.toggle('active-ver', o.dataset.id === path);
+    });
+
+    if (!silent) {
+        try { _lsSet(_getPageVerKey(), JSON.stringify({ path, label: shown, isWasm: !!isWasm })); } catch (e) {}
+        try { _lsSet('gxLastBuild', path); } catch (e) {}
     }
-});
+
+    paintStage(shown);
+    setStatus('BUILD: <span class="hl">' + shown + '</span>');
+
+    // keep the chosen row in view inside the library list
+    const row = document.querySelector('.version-option.active-ver');
+    if (row && row.scrollIntoView) {
+        try { row.scrollIntoView({ block: 'nearest' }); } catch (e) {}
+    }
+    if (typeof gxCacheGet === 'function' && _selectedBuild) refreshDiskButton();
+}
+
+/* The stage is the hero panel: it describes whatever build is selected. */
+function paintStage(shown) {
+    const b = _selectedBuild;
+    const title = document.getElementById('stage-title');
+    const sub = document.getElementById('stage-sub');
+    const tags = document.getElementById('stage-tags');
+    if (!title) return;
+
+    if (!b) {
+        title.textContent = shown || 'Pick a build';
+        if (sub) sub.textContent = 'Choose from the library on the right, or hit Random for a surprise.';
+        if (tags) tags.innerHTML = '';
+        return;
+    }
+
+    title.textContent = b.label || b.name;
+
+    if (sub) {
+        const mirrors = b.mirrors.length;
+        sub.textContent = (b.blurb || '') +
+            (b.blurb ? ' ' : '') + mirrors + ' source' + (mirrors === 1 ? '' : 's') +
+            (mirrors > 1 ? ' — the launcher picks whichever answers first.' : '.');
+    }
+
+    if (tags) {
+        const t = [];
+        t.push('<span class="gx-tag">' + window.GX.catalog.esc(b.epoch) + '</span>');
+        t.push('<span class="gx-tag ' + (b.tech === 'wasm' ? 'wasm' : '') + '">' +
+               (b.tech === 'wasm' ? 'WASM' : 'JAVASCRIPT') + '</span>');
+        if (b.isWisp) t.push('<span class="gx-tag">WISPCRAFT</span>');
+        if (b.isForge) t.push('<span class="gx-tag">FORGE</span>');
+        if (b.isMobile) t.push('<span class="gx-tag">MOBILE</span>');
+        if (b.mirrors.some(m => m.local)) t.push('<span class="gx-tag local">BUNDLED</span>');
+        tags.innerHTML = t.join('');
+    }
+    refreshDiskButton();
+}
+
+/* Called after a launch so the disk indicators reflect what just happened. */
+function gxAfterLaunch() {
+    refreshDiskButton();
+    if (typeof paintCatalogLine === 'function') paintCatalogLine();
+}
+
+/* Shows whether the selected build is already downloaded. */
+function refreshDiskButton() {
+    const label = document.getElementById('disk-label');
+    const btn = document.getElementById('disk-btn');
+    if (!label || !btn || !_selectedBuild) return;
+    if (typeof gxCacheGet !== 'function') return;
+    gxCacheGet(gxCacheKey(_selectedBuild)).then(hit => {
+        label.textContent = hit ? 'On disk · ' + gxFormatBytes(hit.length) : 'Not downloaded';
+        btn.classList.toggle('is-cached', !!hit);
+    }).catch(() => {});
+}
+
+function showDownloadedForSelected() {
+    if (!_selectedBuild) { showToast('Pick a build first.', true); return; }
+    gxCacheGet(gxCacheKey(_selectedBuild)).then(hit => {
+        if (hit) {
+            showToast((_selectedBuild.label || _selectedBuild.name) + ' is on disk (' +
+                gxFormatBytes(hit.length) + ') and will launch offline.');
+        } else {
+            showToast('Not downloaded yet — launching will fetch it and keep a copy.', false);
+        }
+    });
+}
+
+// Called by every build row in the picker.
+function pickBuild(build) {
+    if (!build) return;
+    selectVersion(build.id, build.label || build.name, build.tech === 'wasm');
+}
+window.GX = window.GX || {};
+window.GX.pickBuild = pickBuild;
+window.GX.toggleNav = gxToggleNav;
 
 // ===== ENVIRONMENT DETECTION =====
 // Cloudflare Workers deployments are served from *.workers.dev. On Cloudflare,
@@ -143,23 +247,86 @@ function selectVersion(path, label, isWasm, silent) {
     _selectedVersion = path;
     _selectedBuild = (window.GX && window.GX.catalog) ? window.GX.catalog.byId(path) : null;
     const shown = label || path;
-    const lbl = document.getElementById('version-label');
-    if (lbl) lbl.textContent = shown;
-    document.getElementById('version-dropdown')?.classList.remove('open');
-    document.getElementById('version-select')?.classList.remove('open');
+
     const btn = document.getElementById('play-btn');
     if (btn) btn.disabled = false;
+
     document.querySelectorAll('.version-option').forEach(o => {
         o.classList.toggle('active-ver', o.dataset.id === path);
     });
+
     if (!silent) {
         try { _lsSet(_getPageVerKey(), JSON.stringify({ path, label: shown, isWasm: !!isWasm })); } catch (e) {}
         try { _lsSet('gxLastBuild', path); } catch (e) {}
     }
+
     const method = getEffectiveLaunchMethod();
     const modeLabels = { regular:'REGULAR', 'about-blank':'ABOUT:BLANK', 'data-uri':'DATA URI', blob:'BLOB URL', popup:'POPUP' };
     const badge = document.getElementById('mode-badge-text');
     if (badge) badge.textContent = modeLabels[method] || method.toUpperCase();
+
+    paintStage(shown);
+    setStatus('BUILD: <span class="hl">' + shown + '</span>');
+    const row = document.querySelector('.version-option.active-ver');
+    if (row && row.scrollIntoView) { try { row.scrollIntoView({ block: 'nearest' }); } catch (e) {} }
+    refreshDiskButton();
+}
+
+// Called by every build row in the picker.
+function pickBuild(build) {
+    if (!build) return;
+    selectVersion(build.id, build.label || build.name, build.tech === 'wasm');
+}
+window.GX = window.GX || {};
+window.GX.pickBuild = pickBuild;
+window.GX.toggleNav = gxToggleNav;
+
+// ===== ENVIRONMENT DETECTION =====
+// Cloudflare Workers deployments are served from *.workers.dev. On Cloudflare,
+// 'regular' and 'popup' launch modes don't work reliably, so the badge and the
+// actual launch logic both force 'blob' there. Everything else (GitHub Pages,
+// custom domains, local file) behaves normally using the saved setting.
+function isRunningOnCloudflare() {
+    return location.hostname.endsWith('.workers.dev')
+        || location.hostname.endsWith('.bitbucket.io');
+}
+
+function getEffectiveLaunchMethod() {
+    if (isRunningOnCloudflare()) return 'blob';
+    /* Default is blob, not regular: regular hands the URL to the browser and
+       the launcher never touches the file. Blob forces a real download first,
+       which is what fills the on-disk cache and makes offline launching work. */
+    return getCookie('launchMethod') || 'blob';
+}
+
+function selectVersion(path, label, isWasm, silent) {
+    window._customActive = false;
+    _selectedVersion = path;
+    _selectedBuild = (window.GX && window.GX.catalog) ? window.GX.catalog.byId(path) : null;
+    const shown = label || path;
+
+    const btn = document.getElementById('play-btn');
+    if (btn) btn.disabled = false;
+
+    document.querySelectorAll('.version-option').forEach(o => {
+        o.classList.toggle('active-ver', o.dataset.id === path);
+    });
+
+    if (!silent) {
+        try { _lsSet(_getPageVerKey(), JSON.stringify({ path, label: shown, isWasm: !!isWasm })); } catch (e) {}
+        try { _lsSet('gxLastBuild', path); } catch (e) {}
+    }
+
+    const method = getEffectiveLaunchMethod();
+    const modeLabels = { regular:'REGULAR', 'about-blank':'ABOUT:BLANK', 'data-uri':'DATA URI', blob:'BLOB URL', popup:'POPUP' };
+    const badge = document.getElementById('mode-badge-text');
+    if (badge) badge.textContent = modeLabels[method] || method.toUpperCase();
+
+    paintStage(shown);
+    setStatus('BUILD: <span class="hl">' + shown + '</span>');
+    const row = document.querySelector('.version-option.active-ver');
+    if (row && row.scrollIntoView) { try { row.scrollIntoView({ block: 'nearest' }); } catch (e) {} }
+    refreshDiskButton();
     setStatus('BUILD: <span class="hl">' + shown + '</span>');
     const picked = document.getElementById('play-picked');
     if (picked) {
@@ -188,13 +355,6 @@ function pickBuild(build) {
 }
 window.GX = window.GX || {};
 window.GX.pickBuild = pickBuild;
-
-document.addEventListener('click', e => {
-    if (!e.target.closest('.version-wrapper')) {
-        document.getElementById('version-dropdown')?.classList.remove('open');
-        document.getElementById('version-select')?.classList.remove('open');
-    }
-});
 
 // ===== WISP INJECTION =====
 
@@ -324,8 +484,7 @@ async function warnIfModsWontWork() {
     if (MOD_COMPATIBLE_VERSIONS.includes(String(_selectedVersion).toLowerCase())) return;
     const n = await countEnabledMods();
     if (!n) return;
-    const lbl = document.getElementById('version-label');
-    const name = (lbl && lbl.textContent.trim()) || _selectedVersion;
+    const name = (_selectedBuild && _selectedBuild.name) || _selectedVersion;
     showToast('Warning: your ' + n + ' installed mod' + (n === 1 ? '' : 's') + " won't work on " + name + '. Mods only work on EFI 1.12.2 and EFI 1.8.8.', true, 8000);
 }
 
@@ -540,6 +699,8 @@ async function playGame() {
             setStatus('URI ERROR');
         }
     }
+
+    gxAfterLaunch();
 }
 
 /* Insert a <base> pointing at the mirror so every relative asset in the build
@@ -957,8 +1118,6 @@ document.addEventListener('DOMContentLoaded', () => {
 // ===== CUSTOM HTML UPLOAD =====
 // Lets you run your own game from a single .html file instead of a built-in version.
 function pickCustomHtml() {
-    document.getElementById('version-dropdown')?.classList.remove('open');
-    document.getElementById('version-select')?.classList.remove('open');
     document.getElementById('custom-html-input')?.click();
 }
 
@@ -975,8 +1134,10 @@ async function onCustomHtml(input) {
     }
     window._customName = f.name;
     window._customActive = true;
-    const lbl = document.getElementById('version-label');
-    if (lbl) lbl.textContent = 'Custom: ' + f.name;
+    _selectedBuild = null;
+    paintStage('Custom: ' + f.name);
+    const sub = document.getElementById('stage-sub');
+    if (sub) sub.textContent = 'Running your own HTML file. It never leaves this browser.';
     document.querySelectorAll('.version-option').forEach(o => o.classList.remove('active-ver'));
     const btn = document.getElementById('play-btn');
     if (btn) btn.disabled = false;
@@ -1013,19 +1174,53 @@ async function playCustom() {
     }
     const safe = name.replace(/[&<>"]/g, ch => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[ch]));
     setStatus('LAUNCHED <span class="hl">CUSTOM: ' + safe + '</span>');
+    gxAfterLaunch();
 }
 
 // Shows how many builds the picker knows about, on the Play screens.
 function paintCatalogLine() {
-    const el = document.getElementById('play-catalog-line');
-    if (!el || !window.GX || !window.GX.catalog) return;
+    if (!window.GX || !window.GX.catalog) return;
     const c = window.GX.catalog.counts();
     const sources = (window.GX_BUILD_SOURCES || []).filter(x => !x.unavailable).length;
-    el.innerHTML = '<b>' + c.total + '</b> builds across <b>' + sources +
-        '</b> mirrors &middot; <b>' + c.byTech.wasm + '</b> WASM &middot; restart-free';
+
+    const el = document.getElementById('play-catalog-line');
+    if (el) {
+        el.textContent = c.total + ' builds · ' + sources + ' sources · ' + c.byTech.wasm + ' WASM';
+    }
+    const count = document.getElementById('library-count');
+    if (count) count.textContent = c.total + ' builds';
+
+    // status bar: mirror count + how many builds are downloaded
+    const meta = document.getElementById('status-meta');
+    if (meta && typeof gxCacheList === 'function') {
+        gxCacheList().then(items => {
+            const bytes = items.reduce((n, i) => n + i.size, 0);
+            meta.textContent = sources + ' sources · ' +
+                (items.length ? items.length + ' on disk (' + gxFormatBytes(bytes) + ')' : 'nothing downloaded');
+        }).catch(() => { meta.textContent = sources + ' sources'; });
+    } else if (meta) {
+        meta.textContent = sources + ' sources';
+    }
 }
-if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', paintCatalogLine);
-else paintCatalogLine();
+function gxPaintPlayPage() {
+    paintCatalogLine();
+    // The library is always visible now, so render it up front rather than
+    // waiting for a dropdown to be opened.
+    if (window.GX && window.GX.catalog) {
+        window.GX.catalog.renderDropdown('');
+        const b = _lsGet('gxLastBuild');
+        if (!_selectedVersion && b) {
+            const entry = window.GX.catalog.byId(b);
+            if (entry) selectVersion(entry.id, entry.label || entry.name, entry.tech === 'wasm', true);
+        }
+    }
+    const method = getEffectiveLaunchMethod();
+    const modeLabels = { regular:'REGULAR', 'about-blank':'ABOUT:BLANK', 'data-uri':'DATA URI', blob:'BLOB URL', popup:'POPUP' };
+    const badge = document.getElementById('mode-badge-text');
+    if (badge) badge.textContent = modeLabels[method] || method.toUpperCase();
+}
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', gxPaintPlayPage);
+else gxPaintPlayPage();
 
 
 /* ============================================================
@@ -1338,8 +1533,7 @@ function launchRandomBuild() {
 // Restore the last played build when the user asked for it.
 function gxRestoreLastBuild() {
     if (!gxSettings().rememberBuild) return;
-    if (document.getElementById('version-label')?.textContent !== 'Select Version' &&
-        document.getElementById('version-label')?.textContent !== 'Select a build') return;
+    if (_selectedVersion) return;                 // already chosen
     const id = _lsGet('gxLastBuild');
     if (!id || !window.GX || !window.GX.catalog) return;
     const b = window.GX.catalog.byId(id);

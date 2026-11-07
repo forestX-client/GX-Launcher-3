@@ -449,7 +449,11 @@
 
   function filtered() {
     let list = buildIndex();
-    if (state.epoch !== 'All') list = list.filter(b => b.epoch === state.epoch);
+    /* A search is a global lookup; the era chips are for browsing. Scoping a
+       search to the chip you happen to be on means "aero" finds nothing while
+       the Classic chip is active, which reads as a bug. */
+    const searching = state.q.trim().length > 0;
+    if (!searching && state.epoch !== 'All') list = list.filter(b => b.epoch === state.epoch);
     if (state.tech === 'wasm') list = list.filter(b => b.tech === 'wasm');
     if (state.tech === 'js') list = list.filter(b => b.tech === 'js');
     const q = state.q.trim().toLowerCase();
@@ -623,22 +627,26 @@
 
   /* --- compact picker used in the top bar of every page --- */
   function renderDropdown(query) {
-    const host = document.getElementById('version-dropdown');
-    if (!host) return;
-    const listHost = document.getElementById('gx-dropdown-list') || host;
+    // The list is a permanent panel now; older pages still use a dropdown.
+    const listHost = document.getElementById('gx-dropdown-list')
+                  || document.getElementById('version-dropdown');
+    if (!listHost) return;
     const saved = state.q;
     state.q = (query == null ? '' : query);
 
     const cfg = counts();
     let html = '';
     const chips = ['All', ...EPOCH_ORDER.filter(e => cfg.byEpoch[e])];
-    html += `<div class="gx-chiprow">` + chips.map(e =>
+    const chipHtml = chips.map(e =>
       `<button type="button" class="gx-chip${state.epoch === e ? ' on' : ''}" data-epoch="${esc(e)}">${esc(e)}<b>${e === 'All' ? cfg.total : cfg.byEpoch[e]}</b></button>`
-    ).join('') + `</div>`;
+    ).join('');
+    const chipHost = document.getElementById('gx-chiprow');
+    if (chipHost) chipHost.innerHTML = chipHtml;
+    else html += '<div class="gx-chiprow">' + chipHtml + '</div>';
 
     const list = filtered();
     if (!list.length) {
-      html += `<div class="gx-empty">Nothing matches “${esc(state.q)}”.</div>`;
+      html += `<div class="gx-empty">Nothing matches “${esc(state.q)}”.<br>Try a version number like 1.8.8, or a name like Aero.</div>`;
     }
     let lastEpoch = null;
     for (const b of list) {
@@ -658,7 +666,7 @@
         if (b) GX.pickBuild(b);
       };
     });
-    listHost.querySelectorAll('.gx-chip').forEach(el => {
+    document.querySelectorAll('#gx-chiprow .gx-chip, #gx-dropdown-list .gx-chip').forEach(el => {
       el.onclick = e => {
         e.stopPropagation();
         state.epoch = el.dataset.epoch;
