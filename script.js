@@ -143,7 +143,11 @@ function selectVersion(path, label, isWasm, silent) {
     }
 
     paintStage(shown);
-    setStatus('BUILD: <span class="hl">' + shown + '</span>');
+    if (_selectedBuild && _selectedBuild.tech === 'wasm' && !hasJSPI()) {
+        setStatus('BUILD: <span class="hl">' + shown + '</span> · <span class="hl">JSPI OFF</span>');
+    } else {
+        setStatus('BUILD: <span class="hl">' + shown + '</span>');
+    }
 
     // keep the chosen row in view inside the library list
     const row = document.querySelector('.version-option.active-ver');
@@ -342,7 +346,9 @@ function selectVersion(path, label, isWasm, silent) {
     if (picked) {
         if (_selectedBuild) {
             picked.textContent = shown + '  ·  ' + _selectedBuild.epoch +
-                '  ·  ' + (_selectedBuild.tech === 'wasm' ? 'WASM' : 'JS') +
+                '  ·  ' + (_selectedBuild.tech === 'wasm'
+                    ? (hasJSPI() ? 'WASM' : 'WASM · JSPI OFF')
+                    : 'JS') +
                 '  ·  ' + _selectedBuild.mirrors.length + ' mirror' +
                 (_selectedBuild.mirrors.length === 1 ? '' : 's');
             if (typeof gxCacheGet === 'function') {
@@ -598,12 +604,69 @@ function launchUrl(url, popupFeatures) {
     return !!win;
 }
 
+/* ============================================================
+   JSPI (JavaScript Promise Integration)
+   Most WASM builds are compiled expecting WebAssembly.Suspending /
+   WebAssembly.promising. Without them the build loads, prints
+   "JSPI is not supported! The client cannot start" and shows an error
+   screen — the launcher used to launch it anyway and leave the user
+   staring at that. Chromium 137+ has JSPI on by default; older browsers
+   need chrome://flags/#enable-experimental-webassembly-stack-switching.
+   ============================================================ */
+function hasJSPI() {
+    try {
+        return typeof WebAssembly !== 'undefined' &&
+               typeof WebAssembly.Suspending === 'function' &&
+               typeof WebAssembly.promising === 'function';
+    } catch (e) { return false; }
+}
+
+/* A JS build of the same game, so a browser without JSPI still plays
+   something instead of dying on an error screen. Titles differ only by
+   the (WASM)/(JS) suffix, which is how the catalogue labels them. */
+function findJsTwin(build) {
+    if (!build || !window.GX || !window.GX.catalog) return null;
+    const norm = s => String(s || '')
+        .replace(/\(\s*WASM[^)]*\)/ig, '').replace(/\(\s*JS[^)]*\)/ig, '')
+        .replace(/\bWASM(-GC)?\b/ig, '').replace(/\bJS\b/ig, '')
+        .replace(/[\s-]+/g, ' ').trim().toLowerCase();
+    const want = norm(build.label || build.name);
+    return window.GX.catalog.all().find(b =>
+        b.id !== build.id && b.tech !== 'wasm' && norm(b.label || b.name) === want
+    ) || null;
+}
+
+/* Returns the build that should actually be launched. */
+function resolveJspiFallback(build) {
+    if (!build || build.tech !== 'wasm' || hasJSPI()) return { build, fellBack: false };
+    const twin = findJsTwin(build);
+    if (twin) return { build: twin, fellBack: true, from: build };
+    return { build, fellBack: false, blocked: true };
+}
+
 async function playGame(build) {
     if (window._customActive && window._customHtml) { return playCustom(); }
     /* The Arcade page has no build picker, so it hands the build straight in. */
     if (build && build.id) {
         _selectedVersion = build.id;
         _selectedBuild = build;
+    }
+
+    /* Catch a missing JSPI before downloading 40 MB that cannot run. */
+    if (_selectedBuild && _selectedBuild.tech === 'wasm' && !hasJSPI()) {
+        const fb = resolveJspiFallback(_selectedBuild);
+        if (fb.blocked) {
+            setStatus('JSPI UNAVAILABLE');
+            showToast('This WASM build needs JSPI, which this browser has off. ' +
+                      'Enable chrome://flags/#enable-experimental-webassembly-stack-switching ' +
+                      'and reload, or pick a JavaScript build instead.', true, 11000);
+            return;
+        }
+        showToast('JSPI is off in this browser, so launching the JavaScript version of ' +
+                  (_selectedBuild.label || _selectedBuild.name) + ' instead.', false, 7000);
+        _selectedBuild = fb.build;
+        _selectedVersion = fb.build.id;
+        if (document.getElementById('play-picked')) selectVersion(fb.build.id, fb.build.label || fb.build.name, false);
     }
     if (!_selectedVersion) { showToast('Pick a build first.', true); return; }
     if (!_selectedBuild) _selectedBuild = (window.GX && window.GX.catalog) ? window.GX.catalog.byId(_selectedVersion) : null;
