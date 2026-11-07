@@ -281,23 +281,23 @@
           <div class="mode-grid">
             <div class="mode-card" data-mode="regular" onclick="selectLaunchMode('regular', this)">
               <div class="mode-card-title">Regular</div>
-              <div class="mode-card-desc">Opens the game URL in a new tab. Works with all versions.</div>
+              <div class="mode-card-desc">Hands the build URL straight to the browser. No download step, no patches.</div>
             </div>
             <div class="mode-card" data-mode="about-blank" onclick="selectLaunchMode('about-blank', this)">
               <div class="mode-card-title">About:Blank</div>
-              <div class="mode-card-desc">Opens about:blank then writes the game into a full-screen page. Bypasses some URL filters.</div>
+              <div class="mode-card-desc">Fetches the HTML, then writes it into a blank tab. Bypasses URL filters and keeps a clean address bar.</div>
             </div>
             <div class="mode-card" data-mode="data-uri" onclick="selectLaunchMode('data-uri', this)">
               <div class="mode-card-title">Data URI</div>
-              <div class="mode-card-desc">Base64 encodes a game fetch code then copies it to your clipboard. Bookmarkable.</div>
+              <div class="mode-card-desc">Fetches the HTML and packs it into a data: URI on your clipboard. Paste it in the address bar.</div>
             </div>
             <div class="mode-card" data-mode="blob" onclick="selectLaunchMode('blob', this)">
               <div class="mode-card-title">Blob URL</div>
-              <div class="mode-card-desc">Fetches the game HTML and opens it as a blob: URL in a new tab.</div>
+              <div class="mode-card-desc">Fetches the HTML and opens the downloaded document as a blob: URL. Keeps assets resolving via &lt;base&gt;.</div>
             </div>
             <div class="mode-card" data-mode="popup" onclick="selectLaunchMode('popup', this)">
               <div class="mode-card-title">Popup Window</div>
-              <div class="mode-card-desc">Opens a 1280×720 borderless popup. Requires popups to be allowed in browser.</div>
+              <div class="mode-card-desc">Fetches the HTML and writes it into a 1280×720 popup. Requires popups to be allowed.</div>
             </div>
           </div>
         </div>

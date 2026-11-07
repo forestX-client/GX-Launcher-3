@@ -407,8 +407,9 @@ async function resolveMirror(build) {
     }
 }
 
-// Opens a URL the safe way: popup if allowed, same-tab otherwise, and always
-// stays inside the preview iframe.
+// Opens a URL the safe way: popup if allowed, same-tab otherwise. Used only
+// for the Regular mode (which hands the URL to the browser) and as a last
+// resort when a download fails — it never wraps a build in a frame.
 function launchUrl(url, popupFeatures) {
     const newTab = (typeof gxSettings === 'function' ? gxSettings().preferNewTab : true);
     if (!newTab) { window.location.href = url; return false; }
@@ -425,10 +426,13 @@ async function playGame() {
     if (!_selectedBuild) { showToast('That build is no longer in the catalog.', true); return; }
     await warnIfModsWontWork();
 
-    // HARD OVERRIDE: on Cloudflare Workers (*.workers.dev), always use blob.
-    // No cookie, no settings page involvement — this check happens first,
-    // every time, regardless of anything else.
     const method = getEffectiveLaunchMethod();
+    const wispOn = isWispEnabled();
+    const popupFeatures = 'width=1280,height=720,toolbar=0,menubar=0,location=0,status=0';
+
+    if (wispOn && method === 'regular') {
+        showToast('WISP needs the HTML fetched first — use About:Blank, Blob or Popup mode.', true);
+    }
 
     setStatus('CONNECTING...');
     let absUrl;
@@ -439,185 +443,125 @@ async function playGame() {
         showToast('All mirrors failed for ' + _selectedBuild.name + '. Check your connection.', true, 6000);
         return;
     }
-    setStatus('SOURCE OK');
-    const popupFeatures = 'width=1280,height=720,toolbar=0,menubar=0,location=0,status=0';
-    const wispOn = isWispEnabled();
 
-    // Regular mode: always open the real URL directly.
-    // WISP injection requires fetching/rewriting HTML and is not compatible with regular mode.
+    /* Every mode except Regular downloads the actual HTML file and launches
+       the fetched document. Nothing is loaded through an <iframe>: a frame
+       would re-fetch the build from a third-party origin inside a sandbox the
+       game cannot use (no pointer lock, no keyboard, no fullscreen, and the
+       same CORS walls we just spent a mirror chain to get around). */
     if (method === 'regular') {
-        if (wispOn) {
-            showToast('WISP injection is not supported in Regular mode — use Blob or About:Blank instead.', true);
-        }
+        setStatus('SOURCE OK');
         launchUrl(absUrl);
         setStatus('LAUNCHED <span class="hl">' + _selectedBuild.name + '</span>');
         return;
     }
 
-
-    if (wispOn && method === 'popup') {
-        setStatus('WISP: INJECTING...');
-        _fetchWithProgress(absUrl).then(html => injectWispIntoHtml(html)).then(html => injectServersIntoHtml(html)).then(html => {
-            const blob = new Blob([html], { type: 'text/html' });
-            const blobUrl = URL.createObjectURL(blob);
-            if (!launchUrl(blobUrl, popupFeatures)) showToast('Popup blocked — opening in this tab instead.', true);
-            setStatus('LAUNCHED WITH <span class="hl">WISP + POPUP</span>');
-        }).catch(err => {
-            showToast('WISP failed (' + err.message + ') — launching without WISP.', true);
-            setStatus('WISP ERROR — LAUNCHING WITHOUT WISP');
-            launchUrl(absUrl, popupFeatures);
-        });
+    setStatus('FETCHING...');
+    let html;
+    try {
+        html = await _fetchWithProgress(absUrl, _selectedBuild);
+    } catch (err) {
+        setStatus('FETCH FAILED');
+        showToast('Could not download the build (' + err.message + ') — opening the source URL instead.', true, 6000);
+        launchUrl(absUrl);
         return;
     }
+    setStatus('PATCHING...');
 
+    // WISP is optional and must never cost the user the launch. It is async
+    // (it may lazy-load wisp-bundle.js), so it has to be awaited.
+    if (wispOn) {
+        try { html = await injectWispIntoHtml(html); }
+        catch (e) { showToast('WISP failed (' + e.message + ') — launching without it.', true); }
+    }
+    try { html = injectServersIntoHtml(html); } catch (e) { /* non-fatal */ }
 
+    // Relative URLs (textures, wasm modules, assets) must resolve against the
+    // mirror the file came from, not against the launcher page.
+    const prepared = absolutiseHtml(html, absUrl);
 
-
-
-    if (method === 'popup') {
-        if (!launchUrl(absUrl, popupFeatures)) showToast('Popup blocked — opening in this tab instead.', true);
-        setStatus('LAUNCHED <span class="hl">' + _selectedBuild.name + '</span>');
+    if (method === 'blob') {
+        const blob = new Blob([prepared], { type: 'text/html' });
+        const blobUrl = URL.createObjectURL(blob);
+        if (!launchUrl(blobUrl)) showToast('Popup blocked — opening in this tab instead.', true);
+        setStatus('LAUNCHED <span class="hl">' + _selectedBuild.name + '</span> from fetched HTML');
 
     } else if (method === 'about-blank') {
-        _fetchWithProgress(absUrl).then(html => {
-            return wispOn ? injectWispIntoHtml(html) : html;
-        }).then(html => {
-            return injectServersIntoHtml(html);
-        }).then(html => {
-            const win = window.open('', '_blank');
-            if (!win) { showToast('Popup blocked.', true); return; }
-            win.document.open();
-            win.document.write(html);
-            win.document.close();
-            setStatus(wispOn
-                ? 'LAUNCHED AS <span class="hl">ABOUT:BLANK + WISP</span>'
-                : 'LAUNCHED AS <span class="hl">ABOUT:BLANK</span>');
-        }).catch(err => {
-            if (wispOn) {
-                showToast('WISP failed (' + err.message + ') — launching without WISP.', true);
-                setStatus('WISP ERROR — LAUNCHING WITHOUT WISP');
-                _fetchWithProgress(absUrl).then(html => injectServersIntoHtml(html)).then(html => {
-                    const win = window.open('', '_blank');
-                    if (!win) { showToast('Popup blocked.', true); return; }
-                    win.document.open();
-                    win.document.write(html);
-                    win.document.close();
-                    setStatus('LAUNCHED AS <span class="hl">ABOUT:BLANK</span>');
-                }).catch(err2 => {
-                    showToast('Fetch failed: ' + err2.message, true);
-                    setStatus('FETCH ERROR');
-                });
-            } else {
-                showToast('Fetch failed: ' + err.message, true);
-                setStatus('FETCH ERROR');
-            }
-        });
+        const win = window.open('', '_blank');
+        if (!win) { showToast('Popup blocked.', true); setStatus('POPUP BLOCKED'); return; }
+        win.document.open();
+        win.document.write(prepared);
+        win.document.close();
+        setStatus('LAUNCHED <span class="hl">' + _selectedBuild.name + '</span> in about:blank');
 
-    } else if (method === 'blob') {
-        _fetchWithProgress(absUrl).then(html => {
-            return wispOn ? injectWispIntoHtml(html) : html;
-        }).then(html => {
-            return injectServersIntoHtml(html);
-        }).then(html => {
-            const blob    = new Blob([html], { type: 'text/html' });
-            const blobUrl = URL.createObjectURL(blob);
-            if (!launchUrl(blobUrl)) showToast('Popup blocked — opening in this tab instead.', true);
-            setStatus(wispOn
-                ? 'LAUNCHED AS <span class="hl">BLOB + WISP</span>'
-                : 'LAUNCHED AS <span class="hl">BLOB URL</span>');
-        }).catch(err => {
-            if (wispOn) {
-                showToast('WISP failed (' + err.message + ') — launching without WISP.', true);
-                setStatus('WISP ERROR — LAUNCHING WITHOUT WISP');
-                _fetchWithProgress(absUrl).then(html => injectServersIntoHtml(html)).then(html => {
-                    const blob = new Blob([html], { type: 'text/html' });
-                    const blobUrl = URL.createObjectURL(blob);
-                    launchUrl(blobUrl);
-                    setStatus('LAUNCHED AS <span class="hl">BLOB URL</span>');
-                }).catch(err2 => {
-                    showToast('Fetch failed: ' + err2.message, true);
-                    setStatus('FETCH ERROR');
-                });
-            } else {
-                showToast('Fetch failed: ' + err.message, true);
-                setStatus('FETCH ERROR');
-            }
-        });
+    } else if (method === 'popup') {
+        const win = window.open('', '_blank', popupFeatures);
+        if (!win) { showToast('Popup blocked.', true); setStatus('POPUP BLOCKED'); return; }
+        win.document.open();
+        win.document.write(prepared);
+        win.document.close();
+        setStatus('LAUNCHED <span class="hl">' + _selectedBuild.name + '</span> in popup');
 
     } else if (method === 'data-uri') {
+        /* A data: URI has to carry the whole document, and browsers cap the
+           address bar at roughly 2 MB. Most Eaglercraft builds are 5-40 MB,
+           so this mode is only honest for the small ones — say so plainly
+           instead of copying a URI that will silently truncate. */
         try {
-            const folder  = _selectedVersion.split('/').map(encodeURIComponent).join('/');
-            const cdnBase = 'https://raw.githack.com/xXJ0NXx/GX-Launcher/main/' + folder + '/';
-            const gameUrl = cdnBase + 'index.html';
-
-            const loaderHtml = `<!DOCTYPE html>
-<html><head>
-<meta charset="UTF-8">
-<base href="${cdnBase}">
-<style>
-*{margin:0;padding:0;box-sizing:border-box}
-html,body{width:100%;height:100%;background:#000;overflow:hidden;font-family:monospace;color:#fff}
-#s{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;background:#0a0a0a}
-#bar-wrap{width:320px;height:6px;background:#222;border-radius:3px;overflow:hidden}
-#bar{height:100%;width:0%;background:#cc0000;border-radius:3px;transition:width 0.1s}
-#msg{font-size:13px;color:#aaa;letter-spacing:0.1em}
-</style>
-</head><body>
-<div id="s">
-  <div id="msg">FETCHING GAME...</div>
-  <div id="bar-wrap"><div id="bar"></div></div>
-</div>
-<script>
-(async()=>{
-  const url='${gameUrl}';
-  const bar=document.getElementById('bar');
-  const msg=document.getElementById('msg');
-  try{
-    const res=await fetch(url);
-    if(!res.ok)throw new Error('HTTP '+res.status);
-    const len=+res.headers.get('content-length')||0;
-    const reader=res.body.getReader();
-    const chunks=[];let got=0;
-    while(true){
-      const{done,value}=await reader.read();
-      if(done)break;
-      chunks.push(value);got+=value.length;
-      if(len)bar.style.width=(5+Math.round(got/len*90))+'%';
-    }
-    bar.style.width='100%';
-    msg.textContent='LAUNCHING...';
-    const merged=new Uint8Array(got);let pos=0;
-    for(const c of chunks){merged.set(c,pos);pos+=c.length;}
-    const html=new TextDecoder().decode(merged);
-    const baseTag='<base href="${cdnBase}">';
-    let patched;
-    if(/<head[\s>]/i.test(html)){patched=html.replace(/(<head[^>]*>)/i,'$1\n'+baseTag);}
-    else if(/<html[\s>]/i.test(html)){patched=html.replace(/(<html[^>]*>)/i,'$1\n<head>'+baseTag+'</head>');}
-    else{patched=baseTag+html;}
-    document.open();
-    document.write(patched);
-    document.close();
-  }catch(e){
-    msg.textContent='ERROR: '+e.message;
-    bar.style.background='#aa0000';
-  }
-})();
-</script>
-</body></html>`;
-
-            const b64     = btoa(unescape(encodeURIComponent(loaderHtml)));
-            const dataUri = 'data:text/html;base64,' + b64;
-            navigator.clipboard.writeText(dataUri).then(() => {
-                _showDataUriSplash(true);
-            }).catch(() => {
-                _showDataUriSplash(false);
-            });
+            const dataUri = buildDataUri(prepared);
+            if (dataUri.length > 1500000) {
+                setStatus('BUILD TOO LARGE FOR A URI');
+                showToast('This build is ' + Math.round(prepared.length / 1048576) +
+                    ' MB — too big for a data: URI (browser limit is about 2 MB). ' +
+                    'Switch Launch Mode to Blob URL.', true, 9000);
+                return;
+            }
+            try { await navigator.clipboard.writeText(dataUri); _showDataUriSplash(true); }
+            catch (e) { _showDataUriSplash(false); }
             setStatus('DATA URI COPIED — PASTE IN ADDRESS BAR');
         } catch (e) {
             showToast('Failed to generate URI: ' + e.message, true);
             setStatus('URI ERROR');
         }
     }
+}
+
+/* Insert a <base> pointing at the mirror so every relative asset in the build
+   resolves correctly once the HTML is no longer living at that origin. */
+function absolutiseHtml(html, sourceUrl) {
+    const base = '<base href="' + sourceUrl.replace(/[^/]*$/, '') + '">';
+    if (/<base[\s>]/i.test(html)) return html;                 // already has one
+    if (/<head[^>]*>/i.test(html)) return html.replace(/<head[^>]*>/i, m => m + '\n' + base);
+    if (/<html[^>]*>/i.test(html)) return html.replace(/<html[^>]*>/i, m => m + '\n<head>' + base + '</head>');
+    return base + html;
+}
+
+/* Pack the already-fetched document into a data: URI. Base64 of the UTF-8
+   bytes, decoded in the loader with TextDecoder so non-ASCII build titles and
+   inlined assets survive the round trip. */
+function buildDataUri(html) {
+    // TextEncoder is universal in browsers; guard anyway so an older embedded
+    // webview can still produce a URI instead of throwing.
+    const bytes = (typeof TextEncoder === 'function')
+        ? new TextEncoder().encode(html)
+        : Uint8Array.from(unescape(encodeURIComponent(html)), c => c.charCodeAt(0));
+    let bin = '';
+    const CHUNK = 0x8000;
+    for (let i = 0; i < bytes.length; i += CHUNK) {
+        bin += String.fromCharCode.apply(null, bytes.subarray(i, i + CHUNK));
+    }
+    const b64 = btoa(bin);
+    return 'data:text/html;base64,' + btoa(
+        '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>GX-Launcher</title></head><body>' +
+        '<script>' +
+        'try{' +
+        'var b=atob(' + JSON.stringify(b64) + ');' +
+        'var u=new Uint8Array(b.length);' +
+        'for(var i=0;i<b.length;i++)u[i]=b.charCodeAt(i);' +
+        'var h=new TextDecoder().decode(u);' +
+        'document.open();document.write(h);document.close();' +
+        '}catch(e){document.body.textContent="Launch failed: "+e.message;}' +
+        '<\/script></body></html>');
 }
 
 function _showDataUriSplash(copied) {
@@ -683,12 +627,19 @@ function _showDataUriSplash(copied) {
     setTimeout(() => overlay?.remove(), 15000);
 }
 
-function _fetchWithProgress(url) {
-    showLoading('FETCHING...');
+function _fetchWithProgress(url, build) {
+    const label = build ? (build.label || build.name) : '';
+    showLoading(label ? 'FETCHING ' + label.toUpperCase() : 'FETCHING...');
     setLoadingBar(5);
-    return fetch(url).then(res => {
+    return fetch(url, { credentials: 'omit' }).then(res => {
         if (!res.ok) { hideLoading(); throw new Error('HTTP ' + res.status); }
         const total = parseInt(res.headers.get('content-length') || '0');
+        // No readable stream (older browser, or a proxy that strips it):
+        // fall back to a single-shot text read rather than failing the launch.
+        if (!res.body || typeof res.body.getReader !== 'function') {
+            setLoadingBar(60);
+            return res.text().then(t => { hideLoading(); setLoadingBar(100); return t; });
+        }
         const reader = res.body.getReader();
         let received = 0;
         const chunks = [];
@@ -726,21 +677,6 @@ function redirectToMain()         { window.location.href = 'index.html'; }
 function redirectToDownloads()    { window.location.href = 'downloads.html'; }
 function redirectToSettings()     { window.location.href = 'settings.html'; }
 function redirectToChat()         { window.location.href = 'chat.html'; }
-
-function openBlankPage(link) { window.open(link); }
-
-function createAbout(url) {
-    const win = window.open();
-    win.document.body.style.margin = '0';
-    win.document.body.style.height = '100vh';
-    const iframe = win.document.createElement('iframe');
-    iframe.style.border = 'none';
-    iframe.style.width = '100%';
-    iframe.style.height = '100%';
-    iframe.style.margin = '0';
-    iframe.src = url;
-    win.document.body.appendChild(iframe);
-}
 
 // ===== SETTINGS PAGE ACTIONS =====
 function saveUsername() {
@@ -926,8 +862,9 @@ async function playCustom() {
     }
     try { html = await injectServersIntoHtml(html); } catch (e) { /* launch as-is */ }
 
-    // An uploaded file has no URL of its own, so every mode except about:blank runs it from a blob URL.
-    if (method === 'about-blank') {
+    // An uploaded file has no URL of its own, so Regular has nothing to point
+    // at — fall back to a blob URL, which is what the other modes use anyway.
+    if (method === 'about-blank' || method === 'popup') {
         const win = window.open('', '_blank');
         if (!win) { showToast('Popup blocked.', true); return; }
         win.document.open();
@@ -935,9 +872,8 @@ async function playCustom() {
         win.document.close();
     } else {
         const blobUrl = URL.createObjectURL(new Blob([html], { type: 'text/html' }));
-        const w = method === 'popup'
-            ? window.open(blobUrl, '_blank', 'width=1280,height=720,toolbar=0,menubar=0,location=0,status=0')
-            : window.open(blobUrl, '_blank');
+        const w = window.open(blobUrl, '_blank', method === 'popup'
+            ? 'width=1280,height=720,toolbar=0,menubar=0,location=0,status=0' : undefined);
         if (!w) { showToast('Popup blocked — allow popups for this site.', true); return; }
     }
     const safe = name.replace(/[&<>"]/g, ch => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[ch]));
