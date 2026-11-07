@@ -202,12 +202,16 @@ body::before {
   position: relative;
   overflow: hidden;
 }
-/* zoom scales the resolved box, so divide first to stay viewport-sized */
+/* Zooming the shell scales it up or down, but the percentage width inside a
+   zoomed element already resolves against the *scaled* containing block. The
+   old calc(100% / scale) divided on top of that, so the box came out wrong in
+   both directions: at 150% the play stage collapsed to a sliver and at 75% the
+   build library was pushed off-screen. Plain 100% is the correct size. */
 @supports (zoom: 1) {
   .launcher {
     zoom: var(--ui-scale);
-    width: calc(100% / var(--ui-scale));
-    height: calc(100% / var(--ui-scale));
+    width: 100%;
+    height: 100%;
   }
 }
 
