@@ -278,10 +278,11 @@
         <!-- LAUNCH MODE -->
         <div class="settings-section">
           <div class="settings-section-title">Launch Mode</div>
+          <div class="settings-desc" style="margin:-6px 0 10px">Every mode downloads the build's HTML file first. The bytes are kept on disk, so a build you have launched opens instantly and works offline afterwards.</div>
           <div class="mode-grid">
             <div class="mode-card" data-mode="regular" onclick="selectLaunchMode('regular', this)">
               <div class="mode-card-title">Regular</div>
-              <div class="mode-card-desc">Hands the build URL straight to the browser. No download step, no patches.</div>
+              <div class="mode-card-desc">Downloads the HTML, keeps it on disk, and opens it from the mirror URL.</div>
             </div>
             <div class="mode-card" data-mode="about-blank" onclick="selectLaunchMode('about-blank', this)">
               <div class="mode-card-title">About:Blank</div>
@@ -408,6 +409,17 @@
               <div class="settings-desc">Every host the launcher can pull builds from. A build is launched from whichever source answers first.</div>
             </div>
             <div id="source-list" class="gx-sourcelist"></div>
+          </div>
+
+          <div class="settings-row" style="flex-direction:column;align-items:stretch;gap:8px">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+              <div>
+                <div class="settings-label">Downloaded builds</div>
+                <div class="settings-desc" id="downloaded-desc">Nothing downloaded yet — press Launch on a build to fetch its HTML.</div>
+              </div>
+              <button class="settings-btn-ghost" onclick="clearDownloadedBuilds()">Delete all</button>
+            </div>
+            <div id="downloaded-list" class="gx-downloads"></div>
           </div>
 
           <div class="settings-row">

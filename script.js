@@ -132,7 +132,10 @@ function isRunningOnCloudflare() {
 
 function getEffectiveLaunchMethod() {
     if (isRunningOnCloudflare()) return 'blob';
-    return getCookie('launchMethod') || 'regular';
+    /* Default is blob, not regular: regular hands the URL to the browser and
+       the launcher never touches the file. Blob forces a real download first,
+       which is what fills the on-disk cache and makes offline launching work. */
+    return getCookie('launchMethod') || 'blob';
 }
 
 function selectVersion(path, label, isWasm, silent) {
@@ -165,6 +168,13 @@ function selectVersion(path, label, isWasm, silent) {
                 '  ·  ' + (_selectedBuild.tech === 'wasm' ? 'WASM' : 'JS') +
                 '  ·  ' + _selectedBuild.mirrors.length + ' mirror' +
                 (_selectedBuild.mirrors.length === 1 ? '' : 's');
+            if (typeof gxCacheGet === 'function') {
+                gxCacheGet(gxCacheKey(_selectedBuild)).then(hit => {
+                    if (hit && _selectedBuild && picked.textContent.indexOf('ON DISK') === -1) {
+                        picked.textContent += '  ·  ON DISK (' + gxFormatBytes(hit.length) + ')';
+                    }
+                }).catch(() => {});
+            }
         } else {
             picked.textContent = shown;
         }
@@ -430,42 +440,38 @@ async function playGame() {
     const wispOn = isWispEnabled();
     const popupFeatures = 'width=1280,height=720,toolbar=0,menubar=0,location=0,status=0';
 
-    if (wispOn && method === 'regular') {
-        showToast('WISP needs the HTML fetched first — use About:Blank, Blob or Popup mode.', true);
+    /* Disk first. A build that has already been downloaded must launch with
+       no network at all — resolving a mirror needs a probe, so that has to
+       happen only when there is nothing stored. */
+    let html = await gxCacheGet(gxCacheKey(_selectedBuild));
+    let absUrl = null;
+    const fromDisk = !!html;
+
+    if (html) {
+        absUrl = gxCacheSource(_selectedBuild) || '';
+        setStatus('LOADED FROM DISK');
+    } else {
+        setStatus('CONNECTING...');
+        try {
+            absUrl = await resolveMirror(_selectedBuild);
+        } catch (err) {
+            setStatus('SOURCE UNREACHABLE');
+            showToast('All mirrors failed for ' + _selectedBuild.name + '. Check your connection.', true, 6000);
+            return;
+        }
+        setStatus('FETCHING...');
+        try {
+            const got = await gxFetchBuild(absUrl, _selectedBuild);
+            html = got.html;
+            setStatus(got.stored ? 'DOWNLOADED &amp; SAVED' : 'DOWNLOADED');
+        } catch (err) {
+            setStatus('FETCH FAILED');
+            showToast('Could not download the build (' + err.message + ') — opening the source URL instead.', true, 6000);
+            launchUrl(absUrl);
+            return;
+        }
     }
 
-    setStatus('CONNECTING...');
-    let absUrl;
-    try {
-        absUrl = await resolveMirror(_selectedBuild);
-    } catch (err) {
-        setStatus('SOURCE UNREACHABLE');
-        showToast('All mirrors failed for ' + _selectedBuild.name + '. Check your connection.', true, 6000);
-        return;
-    }
-
-    /* Every mode except Regular downloads the actual HTML file and launches
-       the fetched document. Nothing is loaded through an <iframe>: a frame
-       would re-fetch the build from a third-party origin inside a sandbox the
-       game cannot use (no pointer lock, no keyboard, no fullscreen, and the
-       same CORS walls we just spent a mirror chain to get around). */
-    if (method === 'regular') {
-        setStatus('SOURCE OK');
-        launchUrl(absUrl);
-        setStatus('LAUNCHED <span class="hl">' + _selectedBuild.name + '</span>');
-        return;
-    }
-
-    setStatus('FETCHING...');
-    let html;
-    try {
-        html = await _fetchWithProgress(absUrl, _selectedBuild);
-    } catch (err) {
-        setStatus('FETCH FAILED');
-        showToast('Could not download the build (' + err.message + ') — opening the source URL instead.', true, 6000);
-        launchUrl(absUrl);
-        return;
-    }
     setStatus('PATCHING...');
 
     // WISP is optional and must never cost the user the launch. It is async
@@ -484,7 +490,8 @@ async function playGame() {
         const blob = new Blob([prepared], { type: 'text/html' });
         const blobUrl = URL.createObjectURL(blob);
         if (!launchUrl(blobUrl)) showToast('Popup blocked — opening in this tab instead.', true);
-        setStatus('LAUNCHED <span class="hl">' + _selectedBuild.name + '</span> from fetched HTML');
+        setStatus('LAUNCHED <span class="hl">' + _selectedBuild.name + '</span> ' +
+            (fromDisk ? 'from disk' : 'from fetched HTML'));
 
     } else if (method === 'about-blank') {
         const win = window.open('', '_blank');
@@ -501,6 +508,15 @@ async function playGame() {
         win.document.write(prepared);
         win.document.close();
         setStatus('LAUNCHED <span class="hl">' + _selectedBuild.name + '</span> in popup');
+
+    } else if (method === 'regular') {
+        /* Regular = download the file, keep it on disk, and also let the
+           browser open it directly. Best of both: the launcher really has
+           the HTML (so it is cached and playable offline next time) without
+           routing the game through a blob origin. */
+        launchUrl(absUrl);
+        setStatus('LAUNCHED <span class="hl">' + _selectedBuild.name + '</span> — ' +
+            (fromDisk ? 'from disk, offline-ready' : 'saved to disk'));
 
     } else if (method === 'data-uri') {
         /* A data: URI has to carry the whole document, and browsers cap the
@@ -529,6 +545,7 @@ async function playGame() {
 /* Insert a <base> pointing at the mirror so every relative asset in the build
    resolves correctly once the HTML is no longer living at that origin. */
 function absolutiseHtml(html, sourceUrl) {
+    if (!sourceUrl) return html;              // no known origin: leave relative URLs alone
     const base = '<base href="' + sourceUrl.replace(/[^/]*$/, '') + '">';
     if (/<base[\s>]/i.test(html)) return html;                 // already has one
     if (/<head[^>]*>/i.test(html)) return html.replace(/<head[^>]*>/i, m => m + '\n' + base);
@@ -664,6 +681,124 @@ function _fetchWithProgress(url, build) {
             return new TextDecoder().decode(merged);
         });
     }).catch(err => { hideLoading(); throw err; });
+}
+
+// ===== BUILD FILE CACHE (Cache Storage) =====
+/* Pressing Launch downloads the build's HTML. The bytes go into Cache Storage,
+   which the browser keeps on disk, so a build launched once opens instantly
+   afterwards and works with no connection. This is the difference between
+   "the browser opened a URL" and "the launcher has the file".
+   ============================================================ */
+
+const GX_CACHE_NAME = 'gx-builds-v1';
+
+function gxCacheAvailable() {
+    return typeof caches !== 'undefined' && !!caches.open &&
+           (window.isSecureContext || location.hostname === 'localhost' || location.hostname === '127.0.0.1');
+}
+
+async function gxCacheOpen() { return caches.open(GX_CACHE_NAME); }
+
+/* Cache keys are per BUILD, not per mirror URL. Mirror selection needs a
+   network probe, so keying on the URL would make an offline launch impossible
+   (we would fail to resolve before ever looking at the disk). */
+function gxCacheKey(buildOrId) {
+    const id = typeof buildOrId === 'string' ? buildOrId : (buildOrId && buildOrId.id);
+    return 'https://gx.local/build/' + encodeURIComponent(id || 'unknown');
+}
+
+/* Read a build back from disk. Returns the cached HTML, or null. */
+async function gxCacheGet(url) {
+    if (!gxCacheAvailable()) return null;
+    try {
+        const cache = await gxCacheOpen();
+        const hit = await cache.match(url);
+        if (!hit) return null;
+        const html = await hit.text();
+        return html && html.length > 64 ? html : null;
+    } catch (e) { return null; }
+}
+
+async function gxCachePut(url, html, sourceUrl) {
+    if (!gxCacheAvailable()) return false;
+    try {
+        const cache = await gxCacheOpen();
+        await cache.put(url, new Response(html, {
+            headers: {
+                'Content-Type': 'text/html; charset=utf-8',
+                'X-GX-Cached': new Date().toISOString(),
+                'X-GX-Source': sourceUrl || ''
+            }
+        }));
+        return true;
+    } catch (e) {
+        return false;   // quota or private mode: not fatal, we still hold the bytes
+    }
+}
+
+async function gxCacheDelete(url) {
+    if (!gxCacheAvailable()) return;
+    try { (await gxCacheOpen()).delete(url); } catch (e) {}
+}
+
+async function gxCacheClearAll() {
+    if (!gxCacheAvailable()) return 0;
+    try {
+        const cache = await gxCacheOpen();
+        const keys = await cache.keys();
+        for (const k of keys) await cache.delete(k);
+        return keys.length;
+    } catch (e) { return 0; }
+}
+
+/* Everything currently on disk, newest first. */
+async function gxCacheList() {
+    if (!gxCacheAvailable()) return [];
+    try {
+        const cache = await gxCacheOpen();
+        const reqs = await cache.keys();
+        const out = [];
+        for (const req of reqs) {
+            const res = await cache.match(req.url || req);
+            if (!res) continue;
+            let size = 0;
+            try { size = (await res.clone().text()).length; } catch (e) {}
+            out.push({
+                url: req.url || String(req),
+                size,
+                cachedAt: res.headers.get('X-GX-Cached') || '',
+                source: res.headers.get('X-GX-Source') || ''
+            });
+        }
+        return out.sort((a, b) => String(b.cachedAt).localeCompare(String(a.cachedAt)));
+    } catch (e) { return []; }
+}
+
+/* The mirror that served a build, remembered so a disk copy can still point
+   its <base> at the right asset origin. */
+function gxCacheSource(build) {
+    try { return JSON.parse(_lsGet('gxSource_' + build.id) || 'null') || ''; } catch (e) { return ''; }
+}
+
+function gxRememberSource(build, url) {
+    if (!build || !url) return;
+    try { _lsSet('gxSource_' + build.id, JSON.stringify(url)); } catch (e) {}
+}
+
+/* Download the build and write it to disk under its build id. */
+async function gxFetchBuild(url, build) {
+    const html = await _fetchWithProgress(url, build);
+    if (!html || html.length < 64) throw new Error('empty file (' + (html ? html.length : 0) + ' bytes)');
+    const stored = await gxCachePut(gxCacheKey(build), html, url);
+    gxRememberSource(build, url);
+    return { html, stored };
+}
+
+function gxFormatBytes(n) {
+    if (!n) return '0 KB';
+    if (n < 1024) return n + ' B';
+    if (n < 1024 * 1024) return Math.round(n / 1024) + ' KB';
+    return (n / 1048576).toFixed(1) + ' MB';
 }
 
 // ===== NAVIGATION HELPERS =====
@@ -970,6 +1105,7 @@ function gxSyncSettingsUi() {
     }
 
     renderSourceList();
+    renderDownloadedBuilds();
     refreshStorageInfo();
 }
 
@@ -1047,6 +1183,50 @@ function renderSourceList() {
             '<span class="gx-source-n">' + state + '</span></div>' +
             (s.note ? '<div class="gx-source-note">' + window.GX.catalog.esc(s.note) + '</div>' : '');
     }).join('');
+}
+
+/* List every build file the launcher has actually downloaded, with its size,
+   so "did it really fetch?" is answerable at a glance. */
+async function renderDownloadedBuilds() {
+    const host = document.getElementById('downloaded-list');
+    const desc = document.getElementById('downloaded-desc');
+    if (!host) return;
+    if (!gxCacheAvailable()) {
+        if (desc) desc.textContent = 'This browser will not store files (no Cache Storage, or not a secure context). Launches still fetch each time.';
+        return;
+    }
+    const items = await gxCacheList();
+    const total = items.reduce((n, i) => n + i.size, 0);
+    if (desc) {
+        desc.textContent = items.length
+            ? items.length + ' build' + (items.length === 1 ? '' : 's') + ' on disk, ' + gxFormatBytes(total) + ' total. These launch offline.'
+            : 'Nothing downloaded yet — press Launch on a build to fetch its HTML.';
+    }
+    host.innerHTML = items.length ? items.map(i => {
+        const id = decodeURIComponent(i.url.split('/').filter(Boolean).pop() || '');
+        const build = (window.GX && window.GX.catalog) ? window.GX.catalog.byId(id) : null;
+        const name = build ? (build.label || build.name)
+                           : decodeURIComponent(i.source || i.url).split('/').pop() || i.url;
+        const when = i.cachedAt ? new Date(i.cachedAt).toLocaleString() : '';
+        return '<div class="gx-dl">' +
+            '<span class="gx-dl-name" title="' + window.GX.catalog.esc(i.url) + '">' + window.GX.catalog.esc(name) + '</span>' +
+            '<span class="gx-dl-size">' + gxFormatBytes(i.size) + '</span>' +
+            '<span class="gx-dl-when">' + window.GX.catalog.esc(when) + '</span>' +
+            '<button class="gx-dl-del" onclick="removeDownloadedBuild(' + JSON.stringify(i.url).replace(/"/g, '&quot;') + ')" title="Delete">&times;</button>' +
+            '</div>';
+    }).join('') : '<div class="gx-empty">No downloaded builds yet.</div>';
+}
+
+async function removeDownloadedBuild(url) {
+    await gxCacheDelete(url);
+    renderDownloadedBuilds();
+    showToast('Removed from disk.');
+}
+
+async function clearDownloadedBuilds() {
+    const n = await gxCacheClearAll();
+    renderDownloadedBuilds();
+    showToast(n ? 'Deleted ' + n + ' downloaded build' + (n === 1 ? '' : 's') + '.' : 'Nothing to delete.');
 }
 
 function mirrorCacheCount() {
