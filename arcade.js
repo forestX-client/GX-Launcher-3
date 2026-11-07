@@ -53,7 +53,7 @@
       return;
     }
 
-    const cards = games.map(({ entry, build }) => {
+    const cardHtml = ({ entry, build }) => {
       const img = entry.art
         ? '<div class="game-icon"><img src="' + esc(entry.art) + '" alt="" loading="lazy"' +
           ' onerror="this.parentNode.textContent=\'' + esc(entry.name.charAt(0)) + '\'"></div>'
@@ -71,20 +71,41 @@
         '</span>' +
         '<span class="game-play"><svg viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg></span>' +
       '</button>';
-    }).join('');
+    };
+
+    /* Two groups, in the order they should be read: the actual game first,
+       then the Minecraft variants. The old single flat grid made it look like
+       there were seven games, which is exactly what was wrong with it. */
+    const lead = games.filter(g => (g.entry.group || 'variants') === 'games');
+    const rest = games.filter(g => (g.entry.group || 'variants') !== 'games');
+
+    const group = (title, list, note) =>
+      list.length
+        ? '<div class="arcade-group">' +
+            '<div class="arcade-group-title">' + esc(title) + '</div>' +
+            (note ? '<div class="arcade-group-note">' + esc(note) + '</div>' : '') +
+            '<div class="arcade-grid' + (list.length === 1 ? ' single' : '') + '">' +
+              list.map(cardHtml).join('') +
+            '</div>' +
+          '</div>'
+        : '';
 
     host.innerHTML =
-      '<div class="arcade-group">' +
-        '<div class="arcade-group-title">' + games.length + ' game' + (games.length === 1 ? '' : 's') + ' ready</div>' +
-        '<div class="arcade-grid">' + cards + '</div>' +
-      '</div>';
+      group('Games', lead, '') +
+      group('Minecraft variants', rest,
+        'Eaglercraft builds that are not on the Play page. Different presentation, same game.');
 
     host.querySelectorAll('.game-card').forEach(card => {
       card.addEventListener('click', () => play(card.dataset.build));
     });
 
     const meta = document.getElementById('status-line');
-    if (meta) meta.textContent = games.length + ' GAMES READY';
+    if (meta) {
+      const leadCount = games.filter(g => (g.entry.group || 'variants') === 'games').length;
+      const restCount = games.length - leadCount;
+      meta.textContent = leadCount + (leadCount === 1 ? ' GAME' : ' GAMES') +
+        (restCount ? ' + ' + restCount + ' VARIANT' + (restCount === 1 ? '' : 'S') : '');
+    }
   }
 
   /* Launch exactly like the Play page: cache-aware, mirror-resolving, and it

@@ -18,6 +18,7 @@ const GX_ARCADE = [
     name: 'Minicraft',
     blurb: 'Notch\'s 2011 top-down 2D game. Gather wood, build a shelter, survive the night.',
     file: 'Minicraft.html',
+    group: 'games',
     tags: ['2D', 'SURVIVAL'],
     art: 'resources/arcade/minicraft.png'
   },
@@ -26,6 +27,7 @@ const GX_ARCADE = [
     name: 'Eaglercraft 4K',
     blurb: 'The whole game compressed under four kilobytes. Absurd and it really runs.',
     file: 'mc4k.html',
+    group: 'variants',
     tags: ['DEMO', 'TINY'],
     art: 'resources/arcade/4k.png'
   },
@@ -34,6 +36,7 @@ const GX_ARCADE = [
     name: 'Eaglercraft 4K (JS)',
     blurb: 'The plain-JavaScript cut of the 4K build, for hardware without WASM.',
     file: 'Eaglercraft-4k-JS.html',
+    group: 'variants',
     tags: ['DEMO', 'JAVASCRIPT'],
     art: 'resources/arcade/4k.png'
   },
@@ -43,6 +46,7 @@ const GX_ARCADE = [
     blurb: 'The Scratch edition — block-based visuals, same survival loop.',
     file: 'Eaglercraft Scratch.html',
     alternates: ['Eaglercraft-Scratch.html'],
+    group: 'variants',
     tags: ['NOVELTY'],
     art: 'resources/arcade/scratch.png'
   },
@@ -51,23 +55,26 @@ const GX_ARCADE = [
     name: 'Eaglercraft Mobile',
     blurb: 'Touch-first controls, laid out for a phone held sideways.',
     file: 'Eaglercraft Mobile.html',
+    group: 'variants',
     tags: ['MOBILE', 'TOUCH'],
     art: 'resources/arcade/mobile.png'
   },
   {
     id: 'eaglet',
     name: 'Eaglet',
-    blurb: 'A small, fast client aimed at low-end machines. Vanilla textures.',
+    blurb: 'Small, fast Eaglercraft client for low-end machines. Vanilla textures.',
     file: 'Eaglet.html',
     alternates: ['EagletWithNormalResources.html'],
+    group: 'variants',
     tags: ['CLIENT', 'LIGHTWEIGHT'],
     art: 'resources/arcade/eaglet.png'
   },
   {
     id: 'eaglymc',
     name: 'EaglyMC',
-    blurb: 'EaglyMC — a compact client build with a trimmed launcher screen.',
+    blurb: 'Compact Eaglercraft client with a trimmed launcher screen.',
     file: 'EaglyMC.html',
+    group: 'variants',
     tags: ['CLIENT'],
     art: 'resources/arcade/eaglymc.png'
   },
@@ -77,6 +84,7 @@ const GX_ARCADE = [
     blurb: 'Forge-style mod loader for browser Minecraft. This is the one the mods page targets.',
     file: 'efi-1.8.8/index.html',
     alternates: ['eaglercraft-forge-1.0-js.html'],
+    group: 'variants',
     tags: ['MODS', 'FORGE'],
     art: 'resources/arcade/eagler-forge.png'
   }

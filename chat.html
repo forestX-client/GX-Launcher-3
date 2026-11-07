@@ -13,7 +13,7 @@
   <style>
     .chat-wrap{flex:1;min-height:0;display:flex}
     .chat-col{flex:1;min-width:0;display:flex;flex-direction:column}
-    .chat-head{display:flex;justify-content:space-between;align-items:center;padding:8px 16px;border-bottom:1px solid var(--border);font-family:var(--mono);font-size:10px;letter-spacing:.12em;color:var(--text-dim)}
+    .chat-head{display:flex;justify-content:space-between;align-items:center;min-height:44px;padding:0 16px;border-bottom:1px solid var(--border);font-family:var(--mono);font-size:10px;letter-spacing:.12em;color:var(--text-dim)}
     .sig{display:flex;align-items:center;gap:8px}
     .dot{width:7px;height:7px;border-radius:50%;background:#444;display:inline-block}
     .dot.ok{background:var(--accent);box-shadow:0 0 6px var(--accent)}
@@ -40,8 +40,8 @@
     .chat-input-row input{flex:1;background:var(--bg);border:1px solid var(--border);color:var(--text-bright);padding:9px 12px;font-family:var(--sans);font-size:16px;outline:none}
     .chat-input-row input:disabled{opacity:.35}
     .chat-input-row input:focus{border-color:var(--border2)}
-    .chat-side{width:190px;flex-shrink:0;border-left:1px solid var(--border);background:var(--bg2);padding:12px;overflow-y:auto}
-    .side-label{font-family:var(--mono);font-size:10px;letter-spacing:.2em;color:var(--text-dim);margin-bottom:10px}
+    .chat-side{width:190px;flex-shrink:0;border-left:1px solid var(--border);background:var(--bg2);padding:0 12px 12px;overflow-y:auto}
+    .side-label{display:flex;align-items:center;min-height:44px;margin:0 0 4px;font-family:var(--mono);font-size:10px;letter-spacing:.2em;color:var(--text-dim)}
     .member{display:flex;align-items:center;gap:8px;padding:5px 0;font-family:var(--sans);font-size:15px;color:var(--text-bright)}
     .member em{margin-left:auto;font-style:normal;font-family:var(--mono);font-size:9px;color:var(--accent)}
     .mdot{width:8px;height:8px;border-radius:50%;flex:none;background:var(--accent);box-shadow:0 0 6px var(--accent-glow)}
@@ -131,6 +131,11 @@
           <div class="side-label">ONLINE</div>
           <div id="members"></div>
         </div>
+      </div>
+
+      <div class="bottom-bar">
+        <div class="status-line" id="status-line">CHAT</div>
+        <div class="credit">Built by Jon Stearns</div>
       </div>
     </div>
   </div>

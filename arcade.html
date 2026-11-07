@@ -13,20 +13,25 @@
       overflow-y: auto;
       padding: var(--pad);
     }
+    /* One lead card instead of a bare headline floating over the grid. */
     .arcade-intro {
       display: flex;
-      flex-wrap: wrap;
-      align-items: baseline;
-      gap: 8px 14px;
-      margin-bottom: 14px;
+      align-items: center;
+      gap: 14px;
+      padding: 14px 16px;
+      margin-bottom: 16px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-left: 2px solid var(--accent);
+      border-radius: var(--radius);
     }
+    .arcade-intro-text { min-width: 0; }
     .arcade-mark {
-      width: 40px;
-      height: 40px;
+      width: 44px;
+      height: 44px;
       border-radius: 10px;
       flex: none;
-      align-self: center;
-      border: 1px solid var(--line);
+      border: 1px solid var(--border2);
     }
     .arcade-intro h2 {
       font-size: 17px;
@@ -44,6 +49,16 @@
     }
 
     .arcade-group { margin-bottom: 26px; }
+    .arcade-group + .arcade-group { margin-top: 22px; }
+    .arcade-group-note {
+      font-family: var(--mono);
+      font-size: 10px;
+      line-height: 1.6;
+      color: var(--text-dim);
+      opacity: .8;
+      margin: -4px 0 10px;
+      max-width: 70ch;
+    }
     .arcade-group-title {
       display: flex;
       align-items: center;
@@ -62,17 +77,27 @@
       background: var(--border);
     }
 
+    /* A group with a single entry gets a full-width card rather than one
+       lonely tile stranded in a four-up grid. */
+    .arcade-grid.single { grid-template-columns: minmax(0, 1fr); }
+    .arcade-grid.single .game-card { align-items: center; }
+    .arcade-grid.single .game-icon { width: 84px; height: 84px; }
+    .arcade-grid.single .game-name { font-size: 18px; }
+    .arcade-grid.single .game-blurb { -webkit-line-clamp: 2; font-size: 11px; max-width: 74ch; }
+
     .arcade-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
-      gap: 10px;
+      grid-template-columns: repeat(auto-fill, minmax(232px, 1fr));
+      gap: 12px;
     }
+    .arcade-wrap { padding-bottom: 28px; }
 
     .game-card {
       position: relative;
       display: flex;
-      gap: 11px;
-      padding: 11px;
+      gap: 13px;
+      padding: 14px;
+      border-bottom: 2px solid transparent;
       background: var(--panel);
       border: 1px solid var(--border);
       border-radius: 6px;
@@ -82,14 +107,15 @@
     }
     .game-card:hover {
       border-color: var(--accent);
+      border-bottom-color: var(--accent);
       background: var(--bg2);
       transform: translateY(-1px);
     }
     .game-card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
     .game-icon {
-      width: 46px;
-      height: 46px;
+      width: 58px;
+      height: 58px;
       flex: 0 0 auto;
       border-radius: 5px;
       background: var(--bg3);
@@ -120,7 +146,7 @@
       line-height: 1.5;
       color: var(--text-dim);
       display: -webkit-box;
-      -webkit-line-clamp: 2;
+      -webkit-line-clamp: 3;
       -webkit-box-orient: vertical;
       overflow: hidden;
     }
@@ -212,9 +238,11 @@
       <div class="arcade-wrap">
         <div class="arcade-intro">
           <img class="arcade-mark" src="resources/icons/arcade.png" alt="">
-          <h2>Play something else</h2>
-          <p>Games that ship with the launcher alongside Eaglercraft. Everything here is either bundled
-             or served by the same mirrors the Build Library uses — nothing new to trust.</p>
+          <div class="arcade-intro-text">
+            <h2>Play something else</h2>
+            <p>Not Minecraft this time. Minicraft is the one game here that is genuinely a different
+               game — the rest are Eaglercraft variants kept for the people who ask for them.</p>
+          </div>
         </div>
 
         <div id="arcade-groups">

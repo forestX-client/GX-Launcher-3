@@ -252,7 +252,7 @@ body::before {
   border: 1px solid var(--border);
   border-radius: var(--radius);
 }
-.nav-toggle span { display: block; height: 1.5px; background: var(--text); border-radius: 1px; }
+.nav-toggle span { display: block; width: 100%; height: 1.5px; background: var(--text); border-radius: 1px; }
 .nav-toggle:hover { border-color: var(--accent); }
 .nav-toggle:hover span { background: var(--accent); }
 
@@ -826,7 +826,7 @@ body::before {
   justify-content: space-between;
   gap: 12px;
   padding: 0 var(--pad);
-  height: 44px;
+  min-height: 44px;
   background: var(--panel);
   border-bottom: 1px solid var(--border);
 }
@@ -1198,8 +1198,8 @@ body::before {
   text-transform: uppercase;
   color: var(--text-dim);
 }
-.bottom-bar .status-line { color: var(--text); }
-.bottom-bar .credit { margin-left: auto; opacity: .7; }
+.bottom-bar .status-line, .statusbar .status-line { color: var(--text); }
+.bottom-bar .credit, .statusbar .credit { margin-left: auto; opacity: .7; }
 
 .game-title {
   font-family: var(--mono);
@@ -1260,6 +1260,6 @@ body::before {
   white-space: nowrap;
 }
 @media (max-width: 620px) {
-  .top-bar { min-height: 38px; }
+  .top-bar { min-height: 44px; }
   .top-bar .breadcrumb { display: none; }
 }
