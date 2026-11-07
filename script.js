@@ -75,6 +75,11 @@ function applyTheme(name) {
     for (const [k, v] of Object.entries(GX_DEFAULTS)) root.style.setProperty(k, v);
     const t = GX_THEMES[name] || {};
     for (const [k, v] of Object.entries(t)) root.style.setProperty(k, v);
+    /* Themes are applied as inline custom properties, so nothing downstream can
+       tell which one is active. Mirror it onto the root element as an attribute
+       so the stylesheet can fix the few inks that only work on a dark panel
+       (the light theme's green/amber tags were invisible). */
+    root.setAttribute('data-theme', GX_THEMES[name] ? name : 'default');
     setCookie('launcherTheme', name, 365);
     document.querySelectorAll('.theme-swatch').forEach(s => {
         s.classList.toggle('selected', s.dataset.themeName === name);

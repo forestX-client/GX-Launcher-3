@@ -498,6 +498,30 @@ body::before {
   max-width: 46ch;
   line-height: 1.5;
 }
+
+/* The stage sits on a photographic, always-dark backdrop with its own black
+   scrim, so text over it must NOT follow the light theme's ink colours —
+   that made "Pick a build" white-on-white and the secondary buttons
+   unreadable. Pin every stage colour to the dark side, whatever the theme. */
+.stage .stage-title,
+.stage .stage-sub,
+.stage .stage-eyebrow { color: #f2f2f2; }
+.stage .stage-sub { color: #c8c8c8; }
+.stage .stage-eyebrow { color: #b0b0b0; }
+.stage .btn-secondary,
+.stage .btn-ghost {
+  color: #f2f2f2;
+  border-color: rgba(255,255,255,.28);
+  background: rgba(255,255,255,.08);
+}
+.stage .btn-ghost { background: transparent; color: #c8c8c8; }
+.stage .btn-secondary:hover,
+.stage .btn-ghost:hover {
+  color: #ffffff;
+  border-color: var(--accent);
+  background: rgba(204,0,0,.35);
+}
+.stage .gx-tag { color: #d8d8d8; border-color: rgba(255,255,255,.25); }
 .stage-tags { display: flex; flex-wrap: wrap; gap: 6px; min-height: 0; }
 
 .stage-actions {
@@ -700,6 +724,12 @@ body::before {
 }
 .gx-tag.wasm { color: #ffb300; border-color: #6b4a00; }
 .gx-tag.local { color: #3ddc84; border-color: #1f5c3a; }
+/* The green/amber tag inks were tuned against the dark panel. On the light
+   theme they land at ~1.7:1 against the light card, so they read as blanks. */
+[data-theme="light"] .gx-tag.wasm,
+html[data-theme="light"] .gx-tag.wasm { color: #8a5b00; border-color: #c9a04a; }
+[data-theme="light"] .gx-tag.local,
+html[data-theme="light"] .gx-tag.local { color: #1a6b3c; border-color: #7fbf9a; }
 .gx-empty {
   padding: 30px 16px;
   text-align: center;
