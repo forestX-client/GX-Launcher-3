@@ -161,15 +161,26 @@ body::before {
 
 /* ===== LAUNCHER SHELL ===== */
 .launcher {
+  flex: 0 0 auto;          /* explicit size below, so zoom can be compensated */
   width: 100%;
-  flex: 1;
+  height: 100%;
   min-height: 0;
   display: flex;
   flex-direction: column;
   background: var(--bg2);
   position: relative;
   overflow: hidden;
-  zoom: var(--ui-scale);
+}
+
+/* `zoom` multiplies the resolved size of the element, so a launcher sized
+   100% × 100% becomes 125% × 125% and the bottom bar falls off the screen.
+   Dividing by the scale first keeps it exactly viewport-sized. */
+@supports (zoom: 1) {
+  .launcher {
+    zoom: var(--ui-scale);
+    width: calc(100% / var(--ui-scale));
+    height: calc(100% / var(--ui-scale));
+  }
 }
 
 /* ===== TITLE BAR ===== */
@@ -975,3 +986,214 @@ nav::-webkit-scrollbar-thumb { background: var(--scroll); }
   border: 1px solid var(--border); border-radius: 2px;
 }
 .ghost-btn:hover { color: var(--accent); border-color: var(--accent); }
+
+/* ============================================================
+   RESPONSIVE — the launcher has to fit a phone, not just a desktop
+   ============================================================ */
+
+/* The two chrome bars (title + breadcrumb) cost 74px of height on a phone.
+   Fold the breadcrumb into the title bar instead of stacking them. */
+@media (max-width: 720px) {
+  .title-bar.has-topbar {
+    height: auto;
+    min-height: 40px;
+    padding: 6px 12px;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
+  .title-bar.has-topbar .breadcrumb {
+    margin-left: auto;
+    font-size: 9px;
+    opacity: 0.8;
+  }
+  .top-bar { display: none; }
+  .title-bar.has-topbar .title-mark {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.16em;
+    text-transform: uppercase; color: var(--text-bright); font-weight: 600;
+    order: -1;
+  }
+  .title-bar.has-topbar .title-logo { margin-left: auto; }
+}
+
+/* ---------- Tablet: narrower sidebar ---------- */
+@media (max-width: 980px) {
+  .sidebar { width: 158px; }
+  .version-wrapper { max-width: 230px; }
+  .nav-item { padding: 9px 12px; font-size: 11.5px; gap: 9px; }
+  .play-info { left: 14px; right: 14px; bottom: 14px; }
+}
+
+/* ---------- Phone: sidebar becomes a top strip ---------- */
+@media (max-width: 720px) {
+  body { overflow: hidden; }
+  .content { flex-direction: column; }
+
+  .sidebar {
+    width: 100%;
+    flex-shrink: 0;
+    flex-direction: row;
+    align-items: stretch;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+  /* the profile block is decoration on a phone — the build picker matters more */
+  .sidebar .profile { display: none; }
+  .sidebar .nav-section-label { display: none; }
+
+  /* two rows of icons, horizontally scrollable, no vertical scroll */
+  .sidebar nav {
+    display: flex;
+    flex: 1 1 auto;
+    min-width: 0;
+    align-items: stretch;
+    padding: 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  .sidebar nav::-webkit-scrollbar { display: none; }
+
+  .nav-item {
+    flex: 0 0 auto;
+    flex-direction: column;
+    justify-content: center;
+    gap: 3px;
+    padding: 7px 12px;
+    font-size: 8.5px;
+    letter-spacing: 0.04em;
+    border-left: none;
+    border-bottom: 2px solid transparent;
+    text-align: center;
+    white-space: nowrap;
+  }
+  .nav-item .nav-svg { width: 16px; height: 16px; }
+  .nav-item.selected { border-left-color: transparent; border-bottom-color: var(--accent); }
+
+  /* settings sits at the end of the same strip */
+  /* settings + the last nav items scroll together, so this stays pinned */
+  .sidebar-bottom {
+    border-top: none;
+    border-left: 1px solid var(--border);
+    padding: 0;
+    flex: 0 0 auto;
+  }
+  .sidebar-bottom .nav-item { border-bottom-color: transparent; }
+
+  /* ---- launch bar: full-width picker, buttons on the next line ---- */
+  .launch-bar {
+    flex-wrap: wrap;
+    gap: 7px;
+    padding: 8px 10px;
+  }
+  .version-wrapper { flex: 1 1 100%; max-width: none; order: 1; }
+  .launch-bar .ghost-btn { order: 2; flex: 0 0 auto; height: 32px; padding: 0 11px; }
+  .launch-mode-badge { order: 3; flex: 0 0 auto; margin-left: 0; }
+  .launch-bar .play-button {
+    order: 4;
+    flex: 1 1 auto;
+    min-width: 110px;
+    height: 32px;
+  }
+
+  /* picker sheet: tall enough to browse, anchored to the bar */
+  .version-dropdown {
+    max-height: 62vh;
+    left: -10px;
+    right: -10px;
+    border-radius: 0;
+  }
+  .version-search-input { font-size: 13px; }   /* 16px+ prevents iOS zoom-on-focus */
+  .version-option { padding: 9px 12px; font-size: 12px; }
+
+  /* hero text is unreadable over art on a small screen — keep it short */
+  .play-info { left: 10px; right: 10px; bottom: 10px; gap: 4px; }
+  .play-catalog-line { font-size: 8px; letter-spacing: 0.08em; }
+  .play-picked { font-size: 10px; padding: 5px 8px; }
+
+  .hero-image { object-position: center; }
+}
+
+/* ---------- Very small / landscape phones ---------- */
+@media (max-width: 420px) {
+  .nav-item { padding: 6px 9px; font-size: 8px; }
+  .play-catalog-line { display: none; }
+  .version-dropdown { max-height: 56vh; }
+}
+
+@media (max-height: 460px) and (orientation: landscape) {
+  .title-bar.has-topbar { min-height: 32px; padding: 3px 10px; }
+  .version-dropdown { max-height: 70vh; }
+  .play-info { display: none; }
+}
+
+/* ---------- Touch: bigger hit areas, no hover-only reveals ---------- */
+@media (hover: none) {
+  .nav-item { min-height: 42px; }
+  .version-option { min-height: 40px; }
+  .gx-chip { padding: 7px 9px; font-size: 9.5px; }
+  .settings-btn, .settings-btn-ghost { min-height: 36px; }
+}
+
+/* ---------- Settings on small screens ---------- */
+@media (max-width: 860px) {
+  .theme-grid { grid-template-columns: repeat(3, 1fr); }
+  .mode-grid  { grid-template-columns: repeat(2, 1fr); }
+  .settings-section { margin-bottom: 22px; }
+}
+
+@media (max-width: 720px) {
+  .settings-scroll { padding: 14px 12px 90px; }
+
+  /* label above the control: a 2-column row with a 200px description is
+     unusable at 360px wide */
+  .settings-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 9px;
+    padding: 12px 13px;
+  }
+  .settings-row > div:first-child { min-width: 0; }
+  .settings-desc { font-size: 8.5px; line-height: 1.5; }
+  .settings-row .settings-input { width: 100% !important; }
+
+  /* keep action buttons together on one line */
+  .settings-row > .settings-btn,
+  .settings-row > .settings-btn-ghost { flex: 0 0 auto; }
+  .settings-row:has(.settings-btn) { flex-flow: row wrap; }
+  .settings-row:has(.settings-btn) > div:first-child { flex: 1 1 100%; }
+
+  /* toggles and selects sit opposite their label, not full width */
+  .settings-row:has(.sw) { flex-direction: row; align-items: center; }
+  .settings-row:has(.sw) > div:first-child { flex: 1; }
+  .settings-row:has(select) { flex-direction: row; align-items: center; flex-wrap: wrap; }
+  .settings-row:has(select) select { flex: 0 0 auto; }
+
+  .theme-grid { grid-template-columns: repeat(3, 1fr); gap: 5px; }
+  .theme-swatch { padding: 8px 4px; font-size: 8.5px; }
+  .mode-grid { grid-template-columns: 1fr 1fr; }
+
+  .gx-source { grid-template-columns: 1fr auto; row-gap: 2px; }
+  .gx-source-id { grid-column: 1 / -1; font-size: 9px; }
+  .gx-source-note { padding-left: 8px; }
+}
+
+/* ---------- Safe areas (notched phones) ---------- */
+@supports (padding: max(0px)) {
+  @media (max-width: 720px) {
+    .title-bar.has-topbar { padding-top: max(6px, env(safe-area-inset-top)); }
+    .launch-bar { padding-bottom: max(8px, env(safe-area-inset-bottom)); }
+    .sidebar nav { padding-left: env(safe-area-inset-left); }
+  }
+}
+
+/* Never let a long build name push the launch bar out of shape */
+.version-select span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+.version-select { min-width: 0; }
+.play-button, .ghost-btn { white-space: nowrap; }
