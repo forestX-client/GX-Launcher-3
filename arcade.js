@@ -77,7 +77,8 @@
        then the Minecraft variants. The old single flat grid made it look like
        there were seven games, which is exactly what was wrong with it. */
     const lead = games.filter(g => (g.entry.group || 'variants') === 'games');
-    const rest = games.filter(g => (g.entry.group || 'variants') !== 'games');
+    const packs = games.filter(g => (g.entry.group || 'variants') === 'modpacks');
+    const rest = games.filter(g => (g.entry.group || 'variants') === 'variants');
 
     const group = (title, list, note) =>
       list.length
@@ -92,6 +93,9 @@
 
     host.innerHTML =
       group('Games', lead, '') +
+      group('Modpacks', packs,
+        'Total conversions and modpacks from the Milky-Way-Launcher collection — ' +
+        'Skyfactory, tech, magic, the Aether. These are not plain Eaglercraft builds.') +
       group('Minecraft variants', rest,
         'Eaglercraft builds that are not on the Play page. Different presentation, same game.');
 
@@ -101,10 +105,12 @@
 
     const meta = document.getElementById('status-line');
     if (meta) {
-      const leadCount = games.filter(g => (g.entry.group || 'variants') === 'games').length;
-      const restCount = games.length - leadCount;
-      meta.textContent = leadCount + (leadCount === 1 ? ' GAME' : ' GAMES') +
-        (restCount ? ' + ' + restCount + ' VARIANT' + (restCount === 1 ? '' : 'S') : '');
+      const n = grp => games.filter(g => (g.entry.group || 'variants') === grp).length;
+      const parts = [];
+      if (n('games')) parts.push(n('games') + (n('games') === 1 ? ' GAME' : ' GAMES'));
+      if (n('modpacks')) parts.push(n('modpacks') + ' MODPACKS');
+      if (n('variants')) parts.push(n('variants') + ' VARIANT' + (n('variants') === 1 ? '' : 'S'));
+      meta.textContent = parts.join(' + ');
     }
   }
 

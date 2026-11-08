@@ -87,6 +87,96 @@ const GX_ARCADE = [
     group: 'variants',
     tags: ['MODS', 'FORGE'],
     art: 'resources/arcade/eagler-forge.png'
+  },
+  {
+    id: 'skyfactory',
+    name: 'Skyfactory',
+    blurb: 'Skyblock survival with a full tech and resource modpack layered on.',
+    file: 'Eaglercraft Skyfactory.html',
+    tags: ['MODPACK', 'SKYBLOCK'],
+    group: 'modpacks',
+    art: 'resources/arcade/pack-sky.png'
+  },
+  {
+    id: 'tech',
+    name: 'Tech',
+    blurb: 'Industrial tech modpack — machinery, power and automation.',
+    file: 'Eaglercraft Tech.html',
+    tags: ['MODPACK', 'TECH'],
+    group: 'modpacks',
+    art: 'resources/arcade/pack-tech.png'
+  },
+  {
+    id: 'magic',
+    name: 'Magic',
+    blurb: 'Magic-focused modpack: spell and enchantment overhaul.',
+    file: 'Eaglercraft Magic.html',
+    tags: ['MODPACK', 'MAGIC'],
+    group: 'modpacks',
+    art: 'resources/arcade/pack-magic.png'
+  },
+  {
+    id: 'aether',
+    name: 'Aether',
+    blurb: 'The Aether dimension bolted onto 1.14. Sky islands and new gear.',
+    file: 'Eaglercraft 1.14 Aether.html',
+    tags: ['MODPACK', 'ADVENTURE'],
+    group: 'modpacks',
+    art: 'resources/arcade/pack-sky.png'
+  },
+  {
+    id: 'create',
+    name: 'Create (fast)',
+    blurb: "Create's mechanical contraptions, in a build tuned to start quickly.",
+    file: 'EaglerCreate fast WASM.html',
+    tags: ['MODPACK', 'TECH'],
+    group: 'modpacks',
+    art: 'resources/arcade/pack-tech.png'
+  },
+  {
+    id: 'immersive',
+    name: 'Immersive Engineering',
+    blurb: 'Immersive Engineering 1.12 — multiblock machines and wiring.',
+    file: 'Immersive Engineering 1.12 New.html',
+    tags: ['MODPACK', 'TECH'],
+    group: 'modpacks',
+    art: 'resources/arcade/pack-tech.png'
+  },
+  {
+    id: 'explore',
+    name: 'Explore',
+    blurb: 'Exploration pack: new biomes and structures to wander into.',
+    file: 'Eaglercraft Explore.html',
+    tags: ['MODPACK', 'EXPLORATION'],
+    group: 'modpacks',
+    art: 'resources/arcade/pack-explore.png'
+  },
+  {
+    id: 'modded',
+    name: '26.2 Modded',
+    blurb: 'The newest build with a mod layer on top.',
+    file: 'Eaglercraft 26.2 Modded.html',
+    tags: ['MODPACK', '26.2'],
+    group: 'modpacks',
+    art: 'resources/arcade/pack.png'
+  },
+  {
+    id: 'magic-jspi',
+    name: 'Magic (WASM JSPI)',
+    blurb: 'The magic pack as a WASM build — needs JSPI.',
+    file: 'Eaglercraft WASM JSPI Magic.html',
+    tags: ['MODPACK', 'WASM'],
+    group: 'modpacks',
+    art: 'resources/arcade/pack-magic.png'
+  },
+  {
+    id: 'tech-jspi',
+    name: 'Tech (WASM JSPI)',
+    blurb: 'The tech pack as a WASM build — needs JSPI.',
+    file: 'Eaglercraft WASM JSPI Tech.html',
+    tags: ['MODPACK', 'WASM'],
+    group: 'modpacks',
+    art: 'resources/arcade/pack-tech.png'
   }
 ];
 

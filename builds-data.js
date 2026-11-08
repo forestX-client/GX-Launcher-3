@@ -10,6 +10,9 @@
              (repository: BATTA-JP-sub/Apex-launcher, files in root)
      play  — github.com/TheCookeringYT/play
      arham — github.com/UserArham/version
+     milky — github.com/forestX-client/Milky-Way-Launcher
+             (121 builds, repository root, no Pages deployment so it is
+              served from raw.githubusercontent and jsDelivr)
      quantum — the-creative-masterALT.github.io/quantum-client
              (no longer published; kept so the picker can tell you
               which builds it used to mirror)
@@ -379,6 +382,131 @@ const GX_FILES_ARHAM = [
 /* One entry per host that serves the files. `family` groups hosts that
    publish the same repository, so the UI can say "3 sources" even when
    there are seven usable URLs. */
+/* ---- Milky-Way-Launcher ------------------------------------------ */
+const GX_FILES_MILKY = [
+  "1.21.11 17 WASM.html",
+  "3TERN4L Client V2.1.html",
+  "ActX WASM v1.8.0.html",
+  "Alpha 1.0.1 01 JS.html",
+  "Archimedes Client.html",
+  "ArchMC Eaglercraft 26.2.html",
+  "ArchMC Eaglercraft 26.3.html",
+  "Astra 1.12.html",
+  "Astra 1.8 New.html",
+  "Astra 1.8.html",
+  "Astra JS.html",
+  "Astra WASM.html",
+  "AuraClientBeta.html",
+  "AutoClient.html",
+  "Best Hacked Minecraft No AI.html",
+  "Camo Client.html",
+  "clMinceraft I NotMine V6.html",
+  "CoderCraft.html",
+  "DeathClient 1.4.1 1.8 Intl.html",
+  "DeathClient 1.4.1 1.8 WASM.html",
+  "demon.html",
+  "DragonX Client.html",
+  "DragonX Intl V6.html",
+  "DragonX Outspect.html",
+  "DragonX V4.html",
+  "Eagler Modpack 1.12.2 New.html",
+  "Eaglercraft 1.11.2.html",
+  "Eaglercraft 1.12 EN.html",
+  "Eaglercraft 1.12 Intl.html",
+  "Eaglercraft 1.12.2 WASM.html",
+  "Eaglercraft 1.13.2 EN.html",
+  "Eaglercraft 1.14 Aether.html",
+  "Eaglercraft 1.14.4 WASM.html",
+  "Eaglercraft 1.15.2 JS EN.html",
+  "Eaglercraft 1.15.2 WASM.html",
+  "Eaglercraft 1.16 u3.html",
+  "Eaglercraft 1.17.html",
+  "Eaglercraft 1.4.7.html",
+  "Eaglercraft 26.2 Modded.html",
+  "Eaglercraft 26.2 u2.html",
+  "Eaglercraft 26.3.html",
+  "Eaglercraft Custom 1.12.2 Beta.html",
+  "Eaglercraft Explore.html",
+  "Eaglercraft IR 1.12.2 WASM.html",
+  "Eaglercraft IR 1.12.2.html",
+  "Eaglercraft IR 1.2.5.html",
+  "Eaglercraft IR 1.5.2.html",
+  "Eaglercraft IR 1.6.4.html",
+  "Eaglercraft IR 1.8.8 WASM.html",
+  "Eaglercraft IR 1.8.8.html",
+  "Eaglercraft IR a1.2.6.html",
+  "Eaglercraft IR b1.1.html",
+  "Eaglercraft IR b1.3.html",
+  "Eaglercraft IR b1.7.3.html",
+  "Eaglercraft IR c0.30 WASM.html",
+  "Eaglercraft IR PixelClient 1.8.8 WASM.html",
+  "Eaglercraft IR Winston Horror.html",
+  "Eaglercraft Lite.html",
+  "Eaglercraft Magic.html",
+  "Eaglercraft Skyfactory.html",
+  "Eaglercraft Tech.html",
+  "Eaglercraft Ultimate.html",
+  "Eaglercraft Vanilla.html",
+  "Eaglercraft WASM JSPI Explore.html",
+  "Eaglercraft WASM JSPI Lite.html",
+  "Eaglercraft WASM JSPI Magic.html",
+  "Eaglercraft WASM JSPI Skyfactory.html",
+  "Eaglercraft WASM JSPI Tech.html",
+  "Eaglercraft WASM JSPI Ultimate.html",
+  "Eaglercraft WASM JSPI Vanilla.html",
+  "Eaglercraft Weird Chest Thing.html",
+  "EaglercraftX 1.13 WASM.html",
+  "EaglercraftX 1.20.6 WASM.html",
+  "EaglercraftX 1.7.10 EN.html",
+  "EaglercraftX 1.7.10 WASM.html",
+  "EaglercraftX 1.8 EN (2).html",
+  "EaglercraftX 1.8 EN copy.html",
+  "EaglercraftX 1.8 EN.html",
+  "EaglercraftX 1.8 Intl (2).html",
+  "EaglercraftX 1.8 Intl.html",
+  "EaglercraftX 1.8 WASM.html",
+  "EaglercraftX 194.html",
+  "EaglercraftZ 1.20 u4 Beta Intl.html",
+  "EaglercraftZ 1.20u3 Intl.html",
+  "EaglercraftZ 1.20u3 WASM.html",
+  "EaglerCreate fast WASM.html",
+  "EaglerForge v1 1.8 EN.html",
+  "EaglerForge v1 1.8 Intl.html",
+  "EaglerLite v1.7.2.html",
+  "EaglyMC u6 JS.html",
+  "EaglyMC u6 WASM.html",
+  "EB Client Nextgen CU7.html",
+  "eClient 1 5 2.html",
+  "Eclipse WASM.html",
+  "EclipseClient 1.19 JS.html",
+  "EntropyX 1.8 WASM.html",
+  "EntropyX 1.8.html",
+  "EVILcraft 1.21.11.html",
+  "GX Client.html",
+  "Immersive Engineering 1.12 New.html",
+  "JEI Biomes O Plenty 1.8.8.html",
+  "Justin Client.html",
+  "Kerosene Client.html",
+  "Lambda Client.html",
+  "LiquidBounce.html",
+  "Mega Client.html",
+  "Nit Client.html",
+  "Nova Client.html",
+  "Pi Client.html",
+  "Prism Client.html",
+  "RavenA NotAnOrange.html",
+  "RavenBS.html",
+  "Reborn Client.html",
+  "Solar Client.html",
+  "TungSahur1.21.11.html",
+  "UwU Client.html",
+  "v1.0.7 JS 1.html",
+  "v1.0.7 WASM 1.html",
+  "WispCraft Eaglercraft 26.2 u2.html",
+  "Wurst Client.html",
+  "Zeta Client.html",
+];
+
 const GX_BUILD_SOURCES = [
   {
     id: 'apex', family: 'apex', label: 'Apex-Launcher',
@@ -416,6 +544,16 @@ const GX_BUILD_SOURCES = [
     files: GX_FILES_ARHAM
   },
   {
+    id: 'milky', family: 'milky', label: 'Milky-Way-Launcher (raw)',
+    base: 'https://raw.githubusercontent.com/forestX-client/Milky-Way-Launcher/main/',
+    files: GX_FILES_MILKY
+  },
+  {
+    id: 'milky-cdn', family: 'milky', label: 'Milky-Way-Launcher (jsDelivr)',
+    base: 'https://cdn.jsdelivr.net/gh/forestX-client/Milky-Way-Launcher@main/',
+    files: GX_FILES_MILKY
+  },
+  {
     id: 'quantum', family: 'quantum', label: 'quantum-client',
     base: 'https://the-creative-masteralt.github.io/quantum-client/',
     unavailable: true,          /* no Pages deployment — 404s on every path */
@@ -428,7 +566,8 @@ const GX_BUILD_SOURCES = [
 const GX_REPOS = [
   { id: 'apex',  family: 'apex',  repo: 'BATTA-JP-sub/Apex-launcher', ref: 'main' },
   { id: 'play',  family: 'play',  repo: 'TheCookeringYT/play',        ref: 'main' },
-  { id: 'arham', family: 'arham', repo: 'UserArham/version',          ref: 'main' }
+  { id: 'arham', family: 'arham', repo: 'UserArham/version',          ref: 'main' },
+  { id: 'milky', family: 'milky', repo: 'forestX-client/Milky-Way-Launcher', ref: 'main' }
 ];
 
 /* Direct links per publisher — used for "open the source" buttons. */
@@ -436,6 +575,7 @@ const GX_SOURCE_PLAY_URLS = {
   apex: 'https://batta-jp-sub.github.io/Apex-launcher/',
   play: 'https://github.com/TheCookeringYT/play',
   arham: 'https://github.com/UserArham/version',
+  milky: 'https://github.com/forestX-client/Milky-Way-Launcher',
   quantum: 'https://the-creative-masteralt.github.io/quantum-client'
 };
 

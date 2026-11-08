@@ -1,4 +1,7 @@
 // Auto-generated from repo file tree (xXJ0NXx/GX-Launcher, main branch)
+// NOTE: the generator strips trailing version numbers from folder names, which
+// turned "The Broken Script 1.8.8" into a folder that does not exist upstream.
+// Fixed by hand; if this file is ever regenerated, re-check that entry.
 const DOWNLOADS_BASE = 'https://raw.githubusercontent.com/XENOTECH-X/GX-Launcher/main/game/';
 const DOWNLOAD_GROUPS = [
   {
@@ -964,7 +967,7 @@ const DOWNLOAD_GROUPS = [
         ]
       },
       {
-        "folder": "The Broken Script",
+        "folder": "The Broken Script 1.8.8",
         "label": "The Broken Script 1.8.8",
         "multi": false,
         "files": [

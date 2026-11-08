@@ -347,7 +347,34 @@
     const vm = clean.match(/(\d+\.\d+(?:\.\d+)?[a-z]?)/i);
     const version = vm ? vm[1] : clean;
     const isWasm = /wasm/i.test(clean);
-    return { version, isWasm };
+    return { version, isWasm, clean };
+  }
+
+  /* Builds from third-party launchers often have no entry in KNOWN, and many
+     are one-of-a-kind — a specific modpack, client or Wispcraft cut. The old
+     fallback kept only the bare version number, so "3TERN4L Client V2.1" showed
+     up as "Eaglercraft 2.1" and four different 26.x files all displayed as
+     "Eaglercraft 26.3 (JS)". Keep the distinctive part of the filename. */
+  function deriveName(file, clean) {
+    const stem = String(clean || file.replace(/\.html?$/i, ''))
+      .replace(/\s*\(\d+\)\s*$/, '')            // "EaglercraftX 1.8 EN (2)"
+      .replace(/\b(WASM-?GC|WASM|JS|JAVASCRIPT)\b/gi, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    // keep named things named: clients, packs, modded / JSPI cuts
+    if (/client|modded|modpack|forge|jspi|scratch|mobile|eaglet|eagly|archmc|wispcraft|hacked|evilcraft|skyfactory|create|immersive|tech|magic|aether|jei|explore|ultimate|lite|vanilla|notmine|demon|minceraft/i.test(stem)) {
+      const named = stem.replace(/\beaglercraftx?\b/gi, '').replace(/\s{2,}/g, ' ').trim();
+      return named || stem;
+    }
+
+    // "<engine> <version> <extras>" -> "<version> <extras>"
+    const m = stem.match(/^(?:eaglercraftx?|minecraft|mc)\s*(.*)$/i);
+    if (m) {
+      const rest = m[1].trim();
+      return rest || stem;
+    }
+    return stem;
   }
 
   /* A label that disagrees with its own filename (e.g. a 1.7.10 file tagged
@@ -375,8 +402,11 @@
         let entry = map.get(key);
         if (!entry) {
           const guess = guessFromFile(file);
-          const name = reconcileName(meta ? meta[0] : guess.version, file);
-          const epoch = meta ? meta[1] : (guess.isWasm ? 'Release' : 'Release');
+          const name = meta
+            ? reconcileName(meta[0], file)
+            : (deriveName(file, guess.clean) || guess.version);
+          const isNamedClient = !meta && /client/i.test(file);
+          const epoch = meta ? meta[1] : (isNamedClient ? 'Client' : 'Release');
           entry = {
             id: slugFor(name, file),
             name: name,
